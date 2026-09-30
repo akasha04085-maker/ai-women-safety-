@@ -12,8 +12,11 @@ import com.example.model.EmergencyContact
 import com.example.model.EmergencyStatus
 import com.example.model.IncidentCard
 import com.example.model.IncidentLog
+import com.example.model.LiveSpeakingState
 import com.example.model.OfficerInfo
 import com.example.model.SafeRoute
+import com.example.model.UserProfile
+import com.example.model.UserRole
 import com.example.network.ConnectionRole
 import com.example.network.P2PSyncManager
 import com.example.network.P2PState
@@ -51,6 +54,46 @@ class EmergencyViewModel(application: Application) : AndroidViewModel(applicatio
     val myLocation: StateFlow<GpsCoordinate> = locationManager.currentLocation
     val peerLocation: StateFlow<GpsCoordinate?> = locationManager.peerLocation
     val audioAmplitude: StateFlow<Float> = audioStreamer.audioAmplitude
+
+    // ==========================================
+    // 1. Role-Based Authentication & Session State
+    // ==========================================
+    private val _isLoggedIn = MutableStateFlow(true)
+    val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
+
+    private val _currentRole = MutableStateFlow(UserRole.CITIZEN)
+    val currentRole: StateFlow<UserRole> = _currentRole.asStateFlow()
+
+    private val _currentUserProfile = MutableStateFlow(
+        UserProfile(
+            id = "AG-4410",
+            name = "Ananya Sharma",
+            role = UserRole.CITIZEN,
+            designation = "Cyber City Safe Zone • ID: #AG-4410",
+            phone = "+91 98765 43210",
+            sector = "Sector 28 Cyber City",
+            status = "Protected & Safe"
+        )
+    )
+    val currentUserProfile: StateFlow<UserProfile> = _currentUserProfile.asStateFlow()
+
+    // ==========================================
+    // 2. Real-Time Speaking & Live Location Sync
+    // ==========================================
+    private val _isUserSpeaking = MutableStateFlow(false)
+    val isUserSpeaking: StateFlow<Boolean> = _isUserSpeaking.asStateFlow()
+
+    private val _isPeerSpeaking = MutableStateFlow(false)
+    val isPeerSpeaking: StateFlow<Boolean> = _isPeerSpeaking.asStateFlow()
+
+    private val _activeSpeakerName = MutableStateFlow<String?>(null)
+    val activeSpeakerName: StateFlow<String?> = _activeSpeakerName.asStateFlow()
+
+    private val _activeSpeakerRole = MutableStateFlow<UserRole?>(null)
+    val activeSpeakerRole: StateFlow<UserRole?> = _activeSpeakerRole.asStateFlow()
+
+    private val _liveSpeakingState = MutableStateFlow(LiveSpeakingState())
+    val liveSpeakingState: StateFlow<LiveSpeakingState> = _liveSpeakingState.asStateFlow()
 
     // Active Emergency Session State
     private val _emergencyStatus = MutableStateFlow(EmergencyStatus.IDLE)
@@ -145,6 +188,8 @@ class EmergencyViewModel(application: Application) : AndroidViewModel(applicatio
     private var fakeCallJob: Job? = null
     private var escalationTimerJob: Job? = null
     private var locationBroadcastJob: Job? = null
+    private var speechLiveSyncJob: Job? = null
+    private var peerSpeakingTimeoutJob: Job? = null
 
     init {
         val database = AppDatabase.getInstance(application)
@@ -181,21 +226,47 @@ class EmergencyViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
 
-        // Incoming audio from peer -> Play through speaker
+        // Incoming audio from peer -> Play through speaker & update peer speaking state
         syncManager.onPeerAudioChunkReceived = { chunk ->
             if (_isSpeakerOn.value) {
                 audioStreamer.playReceivedAudioChunk(chunk)
+            }
+            markPeerSpeakingActivity()
+        }
+
+        // Incoming speech state packet from peer -> Real-time view updates
+        syncManager.onPeerSpeechStateChanged = { isSpeaking, coord, amp ->
+            _isPeerSpeaking.value = isSpeaking
+            if (isSpeaking) {
+                val peerName = peerDevice.value?.deviceName ?: "Connected Patrol Unit"
+                val peerRole = if (peerDevice.value?.role == ConnectionRole.VICTIM_BEACON) UserRole.CITIZEN else UserRole.RESPONDER_PATROL
+                _activeSpeakerName.value = peerName
+                _activeSpeakerRole.value = peerRole
+                _liveSpeakingState.value = LiveSpeakingState(
+                    isSpeaking = true,
+                    speakerRole = peerRole,
+                    speakerName = peerName,
+                    audioAmplitude = amp,
+                    speedKmh = coord?.speedKmh ?: 38.0f,
+                    isUser = false
+                )
+                coord?.let {
+                    locationManager.updatePeerLocation(it)
+                    updateDistanceAndEta(it)
+                }
+            } else {
+                if (!_isUserSpeaking.value) {
+                    _activeSpeakerName.value = null
+                    _activeSpeakerRole.value = null
+                    _liveSpeakingState.value = LiveSpeakingState(isSpeaking = false)
+                }
             }
         }
 
         // Incoming location from peer -> Update location manager & recalculate ETA/Distance
         syncManager.onPeerLocationReceived = { peerCoord ->
             locationManager.updatePeerLocation(peerCoord)
-            val myLoc = locationManager.currentLocation.value
-            val distKm = locationManager.calculateDistanceKm(myLoc, peerCoord)
-            val etaMins = locationManager.calculateEtaMinutes(distKm)
-            _distanceMeters.value = distKm * 1000.0
-            _etaString.value = String.format(Locale.US, "%.1f mins (%.1f km)", etaMins, distKm)
+            updateDistanceAndEta(peerCoord)
         }
 
         // Incoming Actions from peer
@@ -268,7 +339,7 @@ class EmergencyViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
 
-        // Continuous Location sync broadcast job
+        // Continuous Location sync broadcast job (1Hz)
         locationBroadcastJob = viewModelScope.launch {
             while (true) {
                 delay(1000)
@@ -279,8 +350,179 @@ class EmergencyViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    private fun markPeerSpeakingActivity() {
+        _isPeerSpeaking.value = true
+        val peerName = peerDevice.value?.deviceName ?: "Peer Voice Relay"
+        val peerRole = if (peerDevice.value?.role == ConnectionRole.VICTIM_BEACON) UserRole.CITIZEN else UserRole.RESPONDER_PATROL
+        _activeSpeakerName.value = peerName
+        _activeSpeakerRole.value = peerRole
+        _liveSpeakingState.value = LiveSpeakingState(
+            isSpeaking = true,
+            speakerRole = peerRole,
+            speakerName = peerName,
+            audioAmplitude = 0.65f,
+            speedKmh = locationManager.peerLocation.value?.speedKmh ?: 38.0f,
+            isUser = false
+        )
+
+        peerSpeakingTimeoutJob?.cancel()
+        peerSpeakingTimeoutJob = viewModelScope.launch {
+            delay(1200)
+            _isPeerSpeaking.value = false
+            if (!_isUserSpeaking.value) {
+                _activeSpeakerName.value = null
+                _activeSpeakerRole.value = null
+                _liveSpeakingState.value = LiveSpeakingState(isSpeaking = false)
+            }
+        }
+    }
+
+    private fun updateDistanceAndEta(peerCoord: GpsCoordinate) {
+        val myLoc = locationManager.currentLocation.value
+        val distKm = locationManager.calculateDistanceKm(myLoc, peerCoord)
+        val etaMins = locationManager.calculateEtaMinutes(distKm)
+        _distanceMeters.value = distKm * 1000.0
+        _etaString.value = String.format(Locale.US, "%.1f mins (%.1f km)", etaMins, distKm)
+    }
+
     private fun getCurrentFormattedTime(): String {
         return SimpleDateFormat("hh:mm:ss a", Locale.getDefault()).format(Date())
+    }
+
+    // ==========================================
+    // 3. User Authentication & Role Switching
+    // ==========================================
+    fun login(role: UserRole, username: String = "", pin: String = ""): Boolean {
+        _currentRole.value = role
+        _isLoggedIn.value = true
+
+        val profile = when (role) {
+            UserRole.CITIZEN -> UserProfile(
+                id = "AG-4410",
+                name = username.ifBlank { role.defaultName },
+                role = role,
+                designation = role.defaultDesignation,
+                phone = "+91 98765 43210",
+                sector = "Sector 28 Cyber City",
+                status = "Protected Citizen Mode Active"
+            )
+            UserRole.RESPONDER_PATROL -> UserProfile(
+                id = "POL-8902",
+                name = username.ifBlank { role.defaultName },
+                role = role,
+                designation = role.defaultDesignation,
+                phone = "+91 112-QRT-04",
+                sector = "Sector 28 Station • Patrol Alpha-4",
+                status = "On Patrol • Available for Dispatch"
+            )
+            UserRole.COMMAND_CENTER -> UserProfile(
+                id = "DISPATCH-112",
+                name = username.ifBlank { role.defaultName },
+                role = role,
+                designation = role.defaultDesignation,
+                phone = "112 Central Dispatch",
+                sector = "Central 112 Operations Command",
+                status = "Command Supervisor Online"
+            )
+        }
+        _currentUserProfile.value = profile
+
+        // Automatically set matching P2P pairing role
+        if (role == UserRole.CITIZEN) {
+            syncManager.startHosting(ConnectionRole.VICTIM_BEACON)
+        } else {
+            syncManager.startHosting(ConnectionRole.RESPONDER_PATROL)
+        }
+
+        _toastMessage.value = "Logged in as ${profile.name} (${role.badge})"
+        return true
+    }
+
+    fun logout() {
+        _isLoggedIn.value = false
+        _toastMessage.value = "Logged out. Please select role to sign in."
+    }
+
+    fun switchRole(role: UserRole) {
+        login(role)
+    }
+
+    // ==========================================
+    // 4. Real-time Speaking & Live Location Integration
+    // ==========================================
+    fun toggleAudioBroadcasting(start: Boolean? = null) {
+        val newState = start ?: !_isAudioBroadcasting.value
+        _isAudioBroadcasting.value = newState
+        _isUserSpeaking.value = newState
+
+        if (newState) {
+            audioStreamer.startStreamingVoice()
+            val myName = _currentUserProfile.value.name
+            val myRole = _currentRole.value
+            _activeSpeakerName.value = myName
+            _activeSpeakerRole.value = myRole
+            _liveSpeakingState.value = LiveSpeakingState(
+                isSpeaking = true,
+                speakerRole = myRole,
+                speakerName = myName,
+                audioAmplitude = 0.7f,
+                speedKmh = locationManager.currentLocation.value.speedKmh,
+                isUser = true
+            )
+
+            // Start accelerated high-frequency GPS live sync loop during speech
+            startSpeechLocationStream()
+            _toastMessage.value = "🎙️ Real-time voice live! Live location streaming at 2Hz..."
+        } else {
+            audioStreamer.stopStreamingVoice()
+            stopSpeechLocationStream()
+            if (!_isPeerSpeaking.value) {
+                _activeSpeakerName.value = null
+                _activeSpeakerRole.value = null
+                _liveSpeakingState.value = LiveSpeakingState(isSpeaking = false)
+            }
+            _toastMessage.value = "Voice transmission ended."
+        }
+    }
+
+    private fun startSpeechLocationStream() {
+        speechLiveSyncJob?.cancel()
+        speechLiveSyncJob = viewModelScope.launch {
+            var step = 0
+            while (_isUserSpeaking.value) {
+                // 1. Broadcast speech state & GPS location packet to peer
+                val currentLoc = locationManager.currentLocation.value
+                val amp = maxOf(0.4f, audioStreamer.audioAmplitude.value)
+                syncManager.broadcastSpeechState(true, currentLoc, amp)
+                syncManager.broadcastLocation(currentLoc)
+
+                // 2. Telemetry drift / live movement simulation while speaking
+                locationManager.nudgeLocationDuringSpeech(
+                    isCitizen = _currentRole.value == UserRole.CITIZEN,
+                    stepCount = step++
+                )
+
+                // 3. If officer is en route, simulate patrol intercept progress
+                if (_emergencyStatus.value == EmergencyStatus.RESPONDER_ASSIGNED || _isAlertAccepted.value) {
+                    val progress = (210 - _etaSeconds.value).toFloat() / 210f
+                    locationManager.updatePatrolProgress(progress)
+                }
+
+                _liveSpeakingState.value = _liveSpeakingState.value.copy(
+                    audioAmplitude = amp,
+                    speedKmh = currentLoc.speedKmh,
+                    timestamp = System.currentTimeMillis()
+                )
+
+                delay(400) // 2.5Hz real-time high-speed voice-location sync
+            }
+        }
+    }
+
+    private fun stopSpeechLocationStream() {
+        speechLiveSyncJob?.cancel()
+        val currentLoc = locationManager.currentLocation.value
+        syncManager.broadcastSpeechState(false, currentLoc, 0f)
     }
 
     // P2P Two-Device Pairing Methods
@@ -354,6 +596,10 @@ class EmergencyViewModel(application: Application) : AndroidViewModel(applicatio
                 val distKm = String.format(Locale.US, "%.1f", (_etaSeconds.value.toDouble() / 210.0) * 1.1)
                 _etaString.value = "$mins.${secs / 10} mins ($distKm km)"
 
+                // Update patrol intercept position dynamically along route
+                val progress = (210 - _etaSeconds.value).toFloat() / 210f
+                locationManager.updatePatrolProgress(progress)
+
                 if (_etaSeconds.value <= 15) {
                     _emergencyStatus.value = EmergencyStatus.RESPONDER_ARRIVING
                 }
@@ -374,18 +620,6 @@ class EmergencyViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun toggleAudioBroadcasting(start: Boolean? = null) {
-        val newState = start ?: !_isAudioBroadcasting.value
-        _isAudioBroadcasting.value = newState
-        if (newState) {
-            audioStreamer.startStreamingVoice()
-            _toastMessage.value = "🎙️ Real-time Audio Mic Active (Broadcasting to peer)..."
-        } else {
-            audioStreamer.stopStreamingVoice()
-            _toastMessage.value = "Mic Stopped."
-        }
-    }
-
     fun toggleMicMute() {
         _isMicMuted.value = !_isMicMuted.value
     }
@@ -402,7 +636,7 @@ class EmergencyViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun acceptPatrolAlert() {
         _isAlertAccepted.value = true
-        _toastMessage.value = "Alert accepted! Intercept route locked."
+        _toastMessage.value = "Alert accepted! Intercept route locked. Sirens active."
         syncManager.broadcastAction("ACCEPT_ALERT")
         viewModelScope.launch {
             repository.addLog(
@@ -414,6 +648,7 @@ class EmergencyViewModel(application: Application) : AndroidViewModel(applicatio
                 )
             )
         }
+        startEtaCountdown()
     }
 
     fun passPatrolAlert() {
@@ -426,6 +661,7 @@ class EmergencyViewModel(application: Application) : AndroidViewModel(applicatio
         _emergencyStatus.value = EmergencyStatus.ON_SCENE
         _toastMessage.value = "Arrived on scene. Live telemetry verified."
         syncManager.broadcastAction("ON_SCENE")
+        locationManager.updatePatrolProgress(1.0f)
         viewModelScope.launch {
             repository.addLog(
                 IncidentLog(
@@ -466,10 +702,10 @@ class EmergencyViewModel(application: Application) : AndroidViewModel(applicatio
                     timeFormatted = time,
                     description = "Note: $noteText",
                     type = "NOTE",
-                    author = "Victim Note"
+                    author = _currentUserProfile.value.name
                 )
             )
-            _toastMessage.value = "Incident note transmitted directly to Patrol Vehicle Unit."
+            _toastMessage.value = "Incident note transmitted directly to Patrol Unit."
         }
     }
 
@@ -554,5 +790,7 @@ class EmergencyViewModel(application: Application) : AndroidViewModel(applicatio
         audioStreamer.release()
         syncManager.disconnect()
         locationManager.stopLocationUpdates()
+        speechLiveSyncJob?.cancel()
+        peerSpeakingTimeoutJob?.cancel()
     }
 }

@@ -63,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.example.ui.components.TacticalGoogleMap
 import com.example.ui.theme.Error
 import com.example.ui.theme.ErrorContainer
 import com.example.ui.theme.InverseSurface
@@ -85,6 +86,14 @@ fun ResponderPatrolScreen(
     val isOnScene by viewModel.isOnScene.collectAsStateWithLifecycle()
     val isResolved by viewModel.isResolved.collectAsStateWithLifecycle()
     val isAudioBroadcasting by viewModel.isAudioBroadcasting.collectAsStateWithLifecycle()
+    val myLoc by viewModel.myLocation.collectAsStateWithLifecycle()
+    val peerLoc by viewModel.peerLocation.collectAsStateWithLifecycle()
+    val etaString by viewModel.etaString.collectAsStateWithLifecycle()
+    val isUserSpeaking by viewModel.isUserSpeaking.collectAsStateWithLifecycle()
+    val isPeerSpeaking by viewModel.isPeerSpeaking.collectAsStateWithLifecycle()
+    val audioAmplitude by viewModel.audioAmplitude.collectAsStateWithLifecycle()
+    val activeSpeakerName by viewModel.activeSpeakerName.collectAsStateWithLifecycle()
+    val currentRole by viewModel.currentRole.collectAsStateWithLifecycle()
 
     Column(
         modifier = Modifier
@@ -636,60 +645,21 @@ fun ResponderPatrolScreen(
                     }
                 }
 
-                // Mini Map Viewport
-                Card(
+                // Interactive Google Maps Tactical Navigation with Live Voice & Intercept
+                TacticalGoogleMap(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(160.dp),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        AsyncImage(
-                            model = "https://lh3.googleusercontent.com/aida-public/AB6AXuB6rJDSzM4YWSg6UR9fWa3VzETV2AGVXbzoXLlZOGjzijeUhaW1DjPEwCbPgracQGuzlU8e2Dn3LJ1VvFREPlnAxHRgB0rFcoxXEgf5HQDAZctCWqth682U3iilwwq1xrUz9btAZ_mIea_DTpFWN8msLcMKctOkWppiP8O5AW6GHVkt_28DnyqinDlmDvYLjocQbdqjo-RSUpYKzc2w4SseXXZCkdLXZS9pE_o0W54Z3h9CxjeSoE6j",
-                            contentDescription = "Tactical Navigation Route",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .align(Alignment.BottomCenter)
-                                .padding(8.dp),
-                            shape = RoundedCornerShape(8.dp),
-                            color = InverseSurface.copy(alpha = 0.88f)
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(8.dp)
-                                            .clip(CircleShape)
-                                            .background(Primary)
-                                    )
-                                    Text(
-                                        text = "Incident Pin • Cross-Street 4B",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                        color = Color.White
-                                    )
-                                }
-                                Text(
-                                    text = "Optimal Surface Route",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
-                                    color = Color.LightGray
-                                )
-                            }
-                        }
-                    }
-                }
+                        .height(240.dp),
+                    victimLocation = myLoc,
+                    patrolLocation = peerLoc,
+                    etaText = etaString,
+                    showSafeCorridors = true,
+                    isUserSpeaking = isUserSpeaking,
+                    isPeerSpeaking = isPeerSpeaking,
+                    userAudioLevel = audioAmplitude,
+                    activeSpeakerName = activeSpeakerName,
+                    currentUserRole = currentRole
+                )
 
                 // Start Google Maps Navigation Button
                 Button(

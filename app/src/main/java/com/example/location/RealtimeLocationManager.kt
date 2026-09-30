@@ -29,15 +29,23 @@ data class GpsCoordinate(
 class RealtimeLocationManager(private val context: Context) {
     companion object {
         private const val TAG = "RealtimeLocationManager"
+        
+        // Base starting coordinates (Cyber City Sector 28)
+        const val DEFAULT_VICTIM_LAT = 12.9716
+        const val DEFAULT_VICTIM_LNG = 77.5946
+        
+        const val DEFAULT_PATROL_LAT = 12.9812
+        const val DEFAULT_PATROL_LNG = 77.6025
     }
 
     private val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
     private val _currentLocation = MutableStateFlow(
         GpsCoordinate(
-            latitude = 12.9716,
-            longitude = 77.5946,
+            latitude = DEFAULT_VICTIM_LAT,
+            longitude = DEFAULT_VICTIM_LNG,
             accuracyMeters = 3.2f,
+            speedKmh = 0.0f,
             locationName = "MG Road Metro Station, Sector 28, Gurugram"
         )
     )
@@ -45,9 +53,10 @@ class RealtimeLocationManager(private val context: Context) {
 
     private val _peerLocation = MutableStateFlow<GpsCoordinate?>(
         GpsCoordinate(
-            latitude = 12.9812,
-            longitude = 77.6025,
+            latitude = DEFAULT_PATROL_LAT,
+            longitude = DEFAULT_PATROL_LNG,
             accuracyMeters = 2.4f,
+            speedKmh = 38.5f,
             locationName = "Sector 28 Station • Patrol Scorpio-4"
         )
     )
@@ -89,7 +98,7 @@ class RealtimeLocationManager(private val context: Context) {
                 )
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Location provider access limited in container/emulator; utilizing fused telemetry", e)
+            Log.w(TAG, "Location provider access limited; using fused telemetry stream", e)
         }
     }
 
@@ -101,8 +110,56 @@ class RealtimeLocationManager(private val context: Context) {
         }
     }
 
+    fun updateCurrentLocation(coord: GpsCoordinate) {
+        _currentLocation.value = coord
+    }
+
     fun updatePeerLocation(coord: GpsCoordinate) {
         _peerLocation.value = coord
+    }
+
+    /**
+     * Simulates real-time patrol vehicle intercept movement towards victim.
+     * Progress ratio from 0.0 (starting station) to 1.0 (on scene with victim).
+     */
+    fun updatePatrolProgress(progressRatio: Float) {
+        val clampedRatio = progressRatio.coerceIn(0f, 1f)
+        val victim = _currentLocation.value
+        val lat = DEFAULT_PATROL_LAT + (victim.latitude - DEFAULT_PATROL_LAT) * clampedRatio
+        val lng = DEFAULT_PATROL_LNG + (victim.longitude - DEFAULT_PATROL_LNG) * clampedRatio
+        val speed = if (clampedRatio >= 0.98f) 0.0f else (35.0f + (clampedRatio * 15.0f))
+        
+        _peerLocation.value = GpsCoordinate(
+            latitude = lat,
+            longitude = lng,
+            accuracyMeters = 2.1f,
+            speedKmh = speed,
+            locationName = if (clampedRatio >= 0.98f) "On Scene • Intercept Secured" else "En Route • Speed ${String.format(Locale.US, "%.0f", speed)} km/h"
+        )
+    }
+
+    /**
+     * Simulates minor live GPS telemetry drift / pedestrian movement during speech
+     */
+    fun nudgeLocationDuringSpeech(isCitizen: Boolean, stepCount: Int) {
+        val drift = (stepCount % 5 - 2) * 0.00008
+        if (isCitizen) {
+            val curr = _currentLocation.value
+            _currentLocation.value = curr.copy(
+                latitude = curr.latitude + drift * 0.5,
+                longitude = curr.longitude + drift * 0.4,
+                speedKmh = 3.6f,
+                timestamp = System.currentTimeMillis()
+            )
+        } else {
+            val curr = _peerLocation.value ?: return
+            _peerLocation.value = curr.copy(
+                latitude = curr.latitude + drift * 0.8,
+                longitude = curr.longitude + drift * 0.7,
+                speedKmh = 42.0f,
+                timestamp = System.currentTimeMillis()
+            )
+        }
     }
 
     fun calculateDistanceKm(loc1: GpsCoordinate, loc2: GpsCoordinate): Double {

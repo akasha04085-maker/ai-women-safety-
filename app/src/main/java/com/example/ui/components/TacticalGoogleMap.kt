@@ -1,14 +1,19 @@
 package com.example.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,9 +29,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Layers
-import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.LocalPolice
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.NearMe
 import androidx.compose.material.icons.filled.PersonPinCircle
@@ -52,14 +58,12 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.example.location.GpsCoordinate
-import com.example.ui.theme.Error
+import com.example.model.UserRole
 import com.example.ui.theme.InverseSurface
 import com.example.ui.theme.Primary
 import com.example.ui.theme.PrimaryContainer
@@ -81,6 +85,7 @@ import com.google.maps.android.compose.MarkerComposable
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
+import java.util.Locale
 
 @Composable
 fun TacticalGoogleMap(
@@ -89,6 +94,12 @@ fun TacticalGoogleMap(
     patrolLocation: GpsCoordinate?,
     showSafeCorridors: Boolean = true,
     etaText: String = "3.5 mins (1.1 km)",
+    isUserSpeaking: Boolean = false,
+    isPeerSpeaking: Boolean = false,
+    userAudioLevel: Float = 0f,
+    peerAudioLevel: Float = 0f,
+    activeSpeakerName: String? = null,
+    currentUserRole: UserRole = UserRole.CITIZEN,
     onRecenterClick: () -> Unit = {}
 ) {
     val victimLatLng = remember(victimLocation.latitude, victimLocation.longitude) {
@@ -111,11 +122,6 @@ fun TacticalGoogleMap(
     // Safe Haven Police Station
     val policeStationLatLng = remember(victimLocation) {
         LatLng(victimLocation.latitude + 0.0042, victimLocation.longitude - 0.0055)
-    }
-
-    // Civil Hospital Emergency Trauma Desk
-    val hospitalLatLng = remember(victimLocation) {
-        LatLng(victimLocation.latitude - 0.0075, victimLocation.longitude - 0.0035)
     }
 
     // Safest well-lit navigation route waypoints
@@ -143,7 +149,7 @@ fun TacticalGoogleMap(
     }
 
     var mapType by remember { mutableStateOf(MapType.NORMAL) }
-    var useGoogleMapsSdk by remember { mutableStateOf(true) }
+    var followSpeakerMode by remember { mutableStateOf(true) }
 
     // Pulsing transition for victim beacon
     val infiniteTransition = rememberInfiniteTransition(label = "markerPulse")
@@ -157,20 +163,54 @@ fun TacticalGoogleMap(
         label = "markerPulseScale"
     )
 
-    LaunchedEffect(victimLatLng, patrolLatLng) {
-        try {
-            val bounds = LatLngBounds.builder()
-                .include(victimLatLng)
-                .include(patrolLatLng)
-                .include(policeStationLatLng)
-                .build()
-            cameraPositionState.animate(
-                CameraUpdateFactory.newLatLngBounds(bounds, 120),
-                durationMs = 800
-            )
-        } catch (e: Exception) {
-            // Camera animate fallback
-            cameraPositionState.position = CameraPosition.fromLatLngZoom(victimLatLng, 14.8f)
+    // Voice acoustic wave pulse animation for the active speaker
+    val voiceRippleScale by infiniteTransition.animateFloat(
+        initialValue = 1.0f,
+        targetValue = 2.4f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(700, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "voiceRipple"
+    )
+    val voiceRippleAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.8f,
+        targetValue = 0.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(700, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "voiceRippleAlpha"
+    )
+
+    // Auto-center camera on speaker if someone is speaking and followSpeakerMode is on
+    LaunchedEffect(isUserSpeaking, isPeerSpeaking, victimLatLng, patrolLatLng, followSpeakerMode) {
+        if (followSpeakerMode) {
+            if (isUserSpeaking) {
+                cameraPositionState.animate(
+                    CameraUpdateFactory.newLatLngZoom(victimLatLng, 16.5f),
+                    durationMs = 500
+                )
+            } else if (isPeerSpeaking) {
+                cameraPositionState.animate(
+                    CameraUpdateFactory.newLatLngZoom(patrolLatLng, 16.5f),
+                    durationMs = 500
+                )
+            } else {
+                try {
+                    val bounds = LatLngBounds.builder()
+                        .include(victimLatLng)
+                        .include(patrolLatLng)
+                        .include(policeStationLatLng)
+                        .build()
+                    cameraPositionState.animate(
+                        CameraUpdateFactory.newLatLngBounds(bounds, 120),
+                        durationMs = 800
+                    )
+                } catch (e: Exception) {
+                    cameraPositionState.position = CameraPosition.fromLatLngZoom(victimLatLng, 14.8f)
+                }
+            }
         }
     }
 
@@ -182,351 +222,363 @@ fun TacticalGoogleMap(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            if (useGoogleMapsSdk) {
-                GoogleMap(
-                    modifier = Modifier.fillMaxSize(),
-                    cameraPositionState = cameraPositionState,
-                    properties = MapProperties(
-                        mapType = mapType,
-                        isMyLocationEnabled = false,
-                        isTrafficEnabled = true
-                    ),
-                    uiSettings = MapUiSettings(
-                        zoomControlsEnabled = false,
-                        compassEnabled = true,
-                        myLocationButtonEnabled = false,
-                        mapToolbarEnabled = false
-                    ),
-                    onMapLoaded = {
-                        // Map successfully loaded
-                    }
+            GoogleMap(
+                modifier = Modifier.fillMaxSize(),
+                cameraPositionState = cameraPositionState,
+                properties = MapProperties(
+                    mapType = mapType,
+                    isMyLocationEnabled = false,
+                    isTrafficEnabled = true
+                ),
+                uiSettings = MapUiSettings(
+                    zoomControlsEnabled = false,
+                    compassEnabled = true,
+                    myLocationButtonEnabled = false,
+                    mapToolbarEnabled = false
+                )
+            ) {
+                // 1. Victim Marker (Ananya S. - High Distress SOS Beacon)
+                MarkerComposable(
+                    state = MarkerState(position = victimLatLng),
+                    title = "Your Location (Victim Beacon)",
+                    snippet = "Broadcasting GPS • High Urgency SOS"
                 ) {
-                    // 1. Victim Marker (Ananya S. - High Distress SOS Beacon)
-                    MarkerComposable(
-                        state = MarkerState(position = victimLatLng),
-                        title = "Your Location (Victim Beacon)",
-                        snippet = "Broadcasting GPS • High Urgency SOS"
+                    Box(
+                        modifier = Modifier.size(72.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(
-                            modifier = Modifier.size(54.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
+                        // Expanding sonic ripples if Citizen is speaking
+                        if (isUserSpeaking && currentUserRole == UserRole.CITIZEN || isPeerSpeaking && currentUserRole != UserRole.CITIZEN) {
                             Box(
                                 modifier = Modifier
-                                    .size(46.dp)
-                                    .scale(pulseScale)
+                                    .size(68.dp)
+                                    .scale(voiceRippleScale)
                                     .clip(CircleShape)
-                                    .background(Primary.copy(alpha = 0.45f))
+                                    .background(Primary.copy(alpha = voiceRippleAlpha * 0.7f))
                             )
-                            Box(
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .clip(CircleShape)
-                                    .background(Primary)
-                                    .border(2.5.dp, Color.White, CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.PersonPinCircle,
-                                    contentDescription = "Victim Location",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
                         }
-                    }
 
-                    // 2. Connected Patrol Unit Marker (Officer Vikram Singh - Scorpio-4)
-                    MarkerComposable(
-                        state = MarkerState(position = patrolLatLng),
-                        title = "Officer Vikram Singh",
-                        snippet = "Patrol Unit Scorpio-4 (KA-04-P-8821)"
-                    ) {
-                        Box(
-                            modifier = Modifier.size(54.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .scale(pulseScale)
-                                    .clip(CircleShape)
-                                    .background(Secondary.copy(alpha = 0.35f))
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .size(30.dp)
-                                    .clip(CircleShape)
-                                    .background(Secondary)
-                                    .border(2.5.dp, Color.White, CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.LocalPolice,
-                                    contentDescription = "Patrol Cruiser",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    // 3. Nearby Sector 28 Standby Patrol
-                    MarkerComposable(
-                        state = MarkerState(position = nearbyPatrolLatLng),
-                        title = "Sector 28 Support Patrol",
-                        snippet = "KA-04-P-1102 (Standby Tier 2)"
-                    ) {
+                        // Normal GPS pulse
                         Box(
                             modifier = Modifier
-                                .size(24.dp)
+                                .size(46.dp)
+                                .scale(pulseScale)
                                 .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.tertiary)
+                                .background(Primary.copy(alpha = 0.45f))
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(30.dp)
+                                .clip(CircleShape)
+                                .background(Primary)
+                                .border(2.5.dp, Color.White, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (isUserSpeaking) Icons.Default.GraphicEq else Icons.Default.PersonPinCircle,
+                                contentDescription = "Victim Location",
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
+
+                // 2. Connected Patrol Unit Marker (Officer Vikram Singh - Scorpio-4)
+                MarkerComposable(
+                    state = MarkerState(position = patrolLatLng),
+                    title = "Officer Vikram Singh",
+                    snippet = "Patrol Unit Scorpio-4 • Speed: ${String.format(Locale.US, "%.0f", patrolLocation?.speedKmh ?: 38f)} km/h"
+                ) {
+                    Box(
+                        modifier = Modifier.size(72.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // Expanding sonic waves if Patrol is speaking
+                        if (isUserSpeaking && currentUserRole == UserRole.RESPONDER_PATROL || isPeerSpeaking && currentUserRole != UserRole.RESPONDER_PATROL) {
+                            Box(
+                                modifier = Modifier
+                                    .size(68.dp)
+                                    .scale(voiceRippleScale)
+                                    .clip(CircleShape)
+                                    .background(Secondary.copy(alpha = voiceRippleAlpha * 0.8f))
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .scale(pulseScale)
+                                .clip(CircleShape)
+                                .background(Secondary.copy(alpha = 0.35f))
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(Secondary)
                                 .border(2.dp, Color.White, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.DirectionsCar,
-                                contentDescription = null,
+                                imageVector = if (isPeerSpeaking || (isUserSpeaking && currentUserRole == UserRole.RESPONDER_PATROL)) Icons.Default.GraphicEq else Icons.Default.DirectionsCar,
+                                contentDescription = "Assigned Patrol Unit",
                                 tint = Color.White,
-                                modifier = Modifier.size(14.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
+                }
 
-                    // 4. Safe Haven Police Station
-                    MarkerComposable(
-                        state = MarkerState(position = policeStationLatLng),
-                        title = "Sector 29 Police Station",
-                        snippet = "Verified Safe Haven • 0.8 km"
+                // 3. Secondary Patrol Unit (Patrol Scorpio-7 in standby)
+                MarkerComposable(
+                    state = MarkerState(position = nearbyPatrolLatLng),
+                    title = "Patrol Scorpio-7 (Backup)",
+                    snippet = "Sector 28 Grid Standby"
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .border(1.5.dp, MaterialTheme.colorScheme.outline, CircleShape),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(26.dp)
-                                .clip(CircleShape)
-                                .background(SecondaryContainer)
-                                .border(2.dp, Secondary, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Shield,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
-
-                    // 5. Civil Hospital Trauma Center
-                    MarkerComposable(
-                        state = MarkerState(position = hospitalLatLng),
-                        title = "Civil Hospital Trauma Center",
-                        snippet = "24/7 Female Support Desk • 1.4 km"
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(26.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFFFDADA))
-                                .border(2.dp, Primary, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.LocalHospital,
-                                contentDescription = null,
-                                tint = Primary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
-
-                    // 6. Safest Well-Lit Intercept Route Polyline
-                    if (showSafeCorridors) {
-                        // Main Intercept Safe Route
-                        Polyline(
-                            points = safeRouteWaypoints,
-                            color = Secondary,
-                            width = 12f,
-                            geodesic = true
-                        )
-
-                        // Emergency Corridors to Safe Haven Station
-                        Polyline(
-                            points = altSafeRouteWaypoints,
-                            color = WarningAmber,
-                            width = 7f,
-                            geodesic = true
+                        Icon(
+                            imageVector = Icons.Default.LocalPolice,
+                            contentDescription = "Backup Patrol",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(14.dp)
                         )
                     }
                 }
-            } else {
-                // Tactical Fallback Map Image with Overlay
-                AsyncImage(
-                    model = "https://lh3.googleusercontent.com/aida-public/AB6AXuDvx8E6sauEOvXqsEXj1qeM5hg8AJ5l2VUpDAYiLg_p7NyquiQ5H9Q5HW1AItEW7ZIz9mauaqO2YuADmae11sj_Y0-fvMAJE8CIVvvkerMywGNtYpoDYdLBEu3OweZaU7iZWjoFPyco3PVTTLVjEQJ7tYS0kCnKjr9WGJv1SvgyYvEzVH0eQ5eK0r7fB5sft-dNduQvVTSN6GDEOOZbQZbKxf3W3b6qilkNplUxvfREkyGn0xEdLAgz",
-                    contentDescription = "Tactical Live Tracking Map",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+
+                // 4. Safe Haven Police Station
+                Marker(
+                    state = MarkerState(position = policeStationLatLng),
+                    title = "Sector 28 Police Station (Safe Haven)",
+                    snippet = "24/7 Armed Guard Desk • 350m Away",
+                    icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)
                 )
 
-                // Dashed Canvas Route overlay
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val pathEffect = PathEffect.dashPathEffect(floatArrayOf(15f, 10f), 0f)
-                    drawLine(
-                        color = Color(0xFF006C4A),
-                        start = Offset(x = size.width * 0.22f, y = size.height * 0.72f),
-                        end = Offset(x = size.width * 0.78f, y = size.height * 0.28f),
-                        strokeWidth = 8f,
-                        pathEffect = pathEffect
+                // 5. Active Safest Intercept Polyline
+                Polyline(
+                    points = safeRouteWaypoints,
+                    color = Primary,
+                    width = 12f,
+                    geodesic = true
+                )
+
+                // 6. Alternative Safe Corridor (Cyan well-lit road)
+                if (showSafeCorridors) {
+                    Polyline(
+                        points = altSafeRouteWaypoints,
+                        color = Secondary,
+                        width = 8f,
+                        geodesic = true
                     )
                 }
             }
 
-            // Top Floating HUD Controls
-            Row(
+            // Fallback Vector Canvas Map when tiles are loading/rendering in container
+            Canvas(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("tactical_map_canvas_overlay")
+            ) {
+                // Subtle tactical radar range circles centered on victim
+                val center = Offset(size.width * 0.45f, size.height * 0.65f)
+                drawCircle(
+                    color = Primary.copy(alpha = 0.05f),
+                    radius = size.width * 0.35f,
+                    center = center
+                )
+            }
+
+            // Top Floating Live Telemetry & Audio Channel HUD
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(10.dp)
+                    .align(Alignment.TopStart),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = InverseSurface.copy(alpha = 0.92f),
-                    shadowElevation = 4.dp
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    // ETA Chip
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = InverseSurface.copy(alpha = 0.90f),
+                        shadowElevation = 3.dp
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.NearMe,
-                            contentDescription = null,
-                            tint = SecondaryFixed,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Column {
-                            Text(
-                                text = "ETA to Victim",
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                color = Color.LightGray
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.NearMe,
+                                contentDescription = null,
+                                tint = SecondaryFixed,
+                                modifier = Modifier.size(16.dp)
                             )
                             Text(
-                                text = etaText,
-                                style = MaterialTheme.typography.titleSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp
+                                text = "ETA: $etaText",
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 11.sp
                                 ),
                                 color = Color.White
                             )
                         }
                     }
+
+                    // Map controls (Follow Speaker & Layer Toggle)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Surface(
+                            shape = CircleShape,
+                            color = if (followSpeakerMode) SecondaryContainer else InverseSurface.copy(alpha = 0.85f),
+                            modifier = Modifier.clickable { followSpeakerMode = !followSpeakerMode }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Mic,
+                                    contentDescription = "Follow Speaker",
+                                    tint = if (followSpeakerMode) MaterialTheme.colorScheme.onSecondaryContainer else Color.White,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = if (followSpeakerMode) "Tracking Speaker" else "Free Map",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (followSpeakerMode) MaterialTheme.colorScheme.onSecondaryContainer else Color.White
+                                )
+                            }
+                        }
+
+                        Surface(
+                            shape = CircleShape,
+                            color = InverseSurface.copy(alpha = 0.85f),
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            IconButton(onClick = {
+                                mapType = if (mapType == MapType.NORMAL) MapType.HYBRID else MapType.NORMAL
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Default.Layers,
+                                    contentDescription = "Change Map Layer",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
                 }
 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                // Active Live Voice Channel Banner
+                AnimatedVisibility(
+                    visible = isUserSpeaking || isPeerSpeaking,
+                    enter = fadeIn(),
+                    exit = fadeOut()
                 ) {
                     Surface(
+                        modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp),
-                        color = Color.White.copy(alpha = 0.92f),
+                        color = if (isUserSpeaking) PrimaryContainer.copy(alpha = 0.95f) else SecondaryContainer.copy(alpha = 0.95f),
                         shadowElevation = 4.dp
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(7.dp)
-                                    .clip(CircleShape)
-                                    .background(Secondary)
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.GraphicEq,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = if (isUserSpeaking) "🎙️ You are speaking live..." else "🎙️ $activeSpeakerName speaking...",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = Color.White
+                                )
+                            }
                             Text(
-                                text = "Live GPS 1Hz",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
-
-                    // Map layer switch
-                    Surface(
-                        onClick = {
-                            mapType = if (mapType == MapType.NORMAL) MapType.HYBRID else MapType.NORMAL
-                        },
-                        shape = CircleShape,
-                        color = Color.White.copy(alpha = 0.92f),
-                        shadowElevation = 4.dp,
-                        modifier = Modifier.size(34.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Default.Layers,
-                                contentDescription = "Toggle Map Type",
-                                tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(16.dp)
+                                text = "GPS 1Hz SYNCED",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                ),
+                                color = Color.White.copy(alpha = 0.9f)
                             )
                         }
                     }
                 }
             }
 
-            // Bottom Location Telemetry Bar & Recenter
+            // Bottom Right Floating Recenter Button
+            IconButton(
+                onClick = {
+                    onRecenterClick()
+                    cameraPositionState.position = CameraPosition.fromLatLngZoom(victimLatLng, 15.5f)
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(12.dp)
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(InverseSurface.copy(alpha = 0.90f))
+                    .testTag("btn_recenter_google_map")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.MyLocation,
+                    contentDescription = "Recenter Map",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            // Bottom Left Telemetry Status Pill
             Surface(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .padding(6.dp),
-                shape = RoundedCornerShape(10.dp),
-                color = Color.White.copy(alpha = 0.95f),
-                shadowElevation = 2.dp
+                    .align(Alignment.BottomStart)
+                    .padding(12.dp),
+                shape = RoundedCornerShape(6.dp),
+                color = Color.Black.copy(alpha = 0.65f)
             ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Security,
-                            contentDescription = null,
-                            tint = Secondary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Text(
-                            text = "Broadcasting ${String.format(java.util.Locale.US, "%.4f° N, %.4f° E", victimLocation.latitude, victimLocation.longitude)} • 98% Well-Lit Route",
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1
-                        )
-                    }
-
-                    IconButton(
-                        onClick = {
-                            try {
-                                cameraPositionState.position = CameraPosition.fromLatLngZoom(victimLatLng, 15.5f)
-                            } catch (e: Exception) {}
-                            onRecenterClick()
-                        },
+                    Box(
                         modifier = Modifier
-                            .size(28.dp)
-                            .testTag("btn_recenter_google_map")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.MyLocation,
-                            contentDescription = "Recenter",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(Secondary)
+                    )
+                    Text(
+                        text = "Patrol: ${String.format(Locale.US, "%.0f", patrolLocation?.speedKmh ?: 38f)} km/h • ±2.1m",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        color = Color.White
+                    )
                 }
             }
         }

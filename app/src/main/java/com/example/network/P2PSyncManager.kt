@@ -57,6 +57,7 @@ class P2PSyncManager(private val context: Context) {
         const val PKT_NOTE: Byte = 0x05
         const val PKT_PING: Byte = 0x06
         const val PKT_PONG: Byte = 0x07
+        const val PKT_SPEECH_STATE: Byte = 0x08
     }
 
     private val scope = CoroutineScope(Dispatchers.IO)
@@ -84,6 +85,7 @@ class P2PSyncManager(private val context: Context) {
     var onPeerAudioChunkReceived: ((ByteArray) -> Unit)? = null
     var onPeerActionReceived: ((String, JSONObject) -> Unit)? = null
     var onPeerNoteReceived: ((String) -> Unit)? = null
+    var onPeerSpeechStateChanged: ((Boolean, GpsCoordinate?, Float) -> Unit)? = null
 
     private var serverSocket: ServerSocket? = null
     private var activeSocket: Socket? = null
@@ -280,6 +282,25 @@ class P2PSyncManager(private val context: Context) {
                     _pingLatencyMs.value = maxOf(4, rtt)
                 }
             }
+            PKT_SPEECH_STATE -> {
+                val json = JSONObject(String(payload, StandardCharsets.UTF_8))
+                val isSpeaking = json.optBoolean("isSpeaking", false)
+                val amp = json.optDouble("amp", 0.0).toFloat()
+                val hasLoc = json.has("lat")
+                val coord = if (hasLoc) {
+                    GpsCoordinate(
+                        latitude = json.optDouble("lat", 12.9716),
+                        longitude = json.optDouble("lng", 77.5946),
+                        accuracyMeters = json.optDouble("acc", 2.0).toFloat(),
+                        speedKmh = json.optDouble("spd", 0.0).toFloat(),
+                        locationName = json.optString("name", "Speaking Peer"),
+                        timestamp = json.optLong("ts", System.currentTimeMillis())
+                    )
+                } else null
+
+                coord?.let { onPeerLocationReceived?.invoke(it) }
+                onPeerSpeechStateChanged?.invoke(isSpeaking, coord, amp)
+            }
         }
     }
 
@@ -310,6 +331,21 @@ class P2PSyncManager(private val context: Context) {
     fun broadcastVoiceChunk(audioChunk: ByteArray) {
         if (_connectionState.value != P2PState.CONNECTED) return
         sendRawPacket(PKT_AUDIO_CHUNK, audioChunk)
+    }
+
+    fun broadcastSpeechState(isSpeaking: Boolean, location: GpsCoordinate, amplitude: Float = 0.5f) {
+        if (_connectionState.value != P2PState.CONNECTED) return
+        val json = JSONObject().apply {
+            put("isSpeaking", isSpeaking)
+            put("amp", amplitude)
+            put("lat", location.latitude)
+            put("lng", location.longitude)
+            put("acc", location.accuracyMeters)
+            put("spd", location.speedKmh)
+            put("name", location.locationName)
+            put("ts", System.currentTimeMillis())
+        }
+        sendJsonPacket(PKT_SPEECH_STATE, json)
     }
 
     fun broadcastAction(action: String, data: JSONObject = JSONObject()) {

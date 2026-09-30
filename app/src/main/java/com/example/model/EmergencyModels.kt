@@ -21,7 +21,7 @@ data class IncidentLog(
     val timestamp: Long = System.currentTimeMillis(),
     val timeFormatted: String,
     val description: String,
-    val type: String, // "TRIGGER", "DISPATCH", "NOTE", "RESOLVED", "PATROL_STATUS"
+    val type: String, // "TRIGGER", "DISPATCH", "NOTE", "RESOLVED", "PATROL_STATUS", "VOICE"
     val isCritical: Boolean = false,
     val author: String = "System"
 )
@@ -49,6 +49,61 @@ enum class EmergencyStatus {
     ON_SCENE,
     RESOLVED
 }
+
+enum class UserRole(
+    val title: String,
+    val subtitle: String,
+    val defaultName: String,
+    val defaultDesignation: String,
+    val badge: String,
+    val badgeId: String
+) {
+    CITIZEN(
+        title = "Citizen / Protected User",
+        subtitle = "Aura Women Safety SOS Beacon",
+        defaultName = "Ananya Sharma",
+        defaultDesignation = "Cyber City Safe Zone • ID: #AG-4410",
+        badge = "CITIZEN BEACON",
+        badgeId = "AG-4410"
+    ),
+    RESPONDER_PATROL(
+        title = "Patrol Officer / QRT",
+        subtitle = "Quick Response Unit & Tactical Intercept",
+        defaultName = "SI Vikram Singh",
+        defaultDesignation = "Patrol Scorpio-4 • Sector 28 Station",
+        badge = "ARMED RESPONDER",
+        badgeId = "POL-8902"
+    ),
+    COMMAND_CENTER(
+        title = "Command Center / Dispatch",
+        subtitle = "Central 112 Incident Command & PostGIS Radar",
+        defaultName = "Inspector Radhika Roy",
+        defaultDesignation = "Chief Dispatch Officer • Central 112 Grid",
+        badge = "COMMAND DISPATCH",
+        badgeId = "DISPATCH-112"
+    )
+}
+
+data class UserProfile(
+    val id: String,
+    val name: String,
+    val role: UserRole,
+    val designation: String,
+    val phone: String,
+    val avatarUrl: String = "",
+    val sector: String = "Sector 28 Cyber City",
+    val status: String = "Active & On-Duty"
+)
+
+data class LiveSpeakingState(
+    val isSpeaking: Boolean = false,
+    val speakerRole: UserRole? = null,
+    val speakerName: String = "",
+    val speedKmh: Float = 0f,
+    val audioAmplitude: Float = 0f,
+    val isUser: Boolean = false,
+    val timestamp: Long = System.currentTimeMillis()
+)
 
 data class OfficerInfo(
     val id: String = "POL-8902",

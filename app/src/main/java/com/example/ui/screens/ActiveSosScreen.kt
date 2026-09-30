@@ -103,6 +103,11 @@ fun ActiveSosScreen(
     val activeIncidentCode by viewModel.activeIncidentCode.collectAsStateWithLifecycle()
     val myLoc by viewModel.myLocation.collectAsStateWithLifecycle()
     val peerLoc by viewModel.peerLocation.collectAsStateWithLifecycle()
+    val isUserSpeaking by viewModel.isUserSpeaking.collectAsStateWithLifecycle()
+    val isPeerSpeaking by viewModel.isPeerSpeaking.collectAsStateWithLifecycle()
+    val audioAmplitude by viewModel.audioAmplitude.collectAsStateWithLifecycle()
+    val activeSpeakerName by viewModel.activeSpeakerName.collectAsStateWithLifecycle()
+    val currentRole by viewModel.currentRole.collectAsStateWithLifecycle()
 
     var showCancelPinDialog by remember { mutableStateOf(false) }
     var showAddNoteDialog by remember { mutableStateOf(false) }
@@ -215,11 +220,16 @@ fun ActiveSosScreen(
             TacticalGoogleMap(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(260.dp),
+                    .height(270.dp),
                 victimLocation = myLoc,
                 patrolLocation = peerLoc,
                 etaText = etaString,
-                showSafeCorridors = true
+                showSafeCorridors = true,
+                isUserSpeaking = isUserSpeaking,
+                isPeerSpeaking = isPeerSpeaking,
+                userAudioLevel = audioAmplitude,
+                activeSpeakerName = activeSpeakerName,
+                currentUserRole = currentRole
             )
 
             // 3. Assigned Patrol & Officer Card

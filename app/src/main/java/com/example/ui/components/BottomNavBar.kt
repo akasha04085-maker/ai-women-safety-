@@ -12,9 +12,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AltRoute
+import androidx.compose.material.icons.filled.CellTower
 import androidx.compose.material.icons.filled.Emergency
 import androidx.compose.material.icons.filled.LocalPolice
 import androidx.compose.material.icons.filled.Quickreply
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -29,20 +31,45 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.model.UserRole
 import com.example.ui.theme.Primary
 
 enum class NavDestination(val label: String, val icon: ImageVector, val tag: String) {
     HOME("SOS Home", Icons.Default.Emergency, "nav_tab_home"),
     ROUTES("Routes", Icons.Default.AltRoute, "nav_tab_routes"),
-    CONTACTS("Contacts", Icons.Default.Quickreply, "nav_tab_contacts"),
-    PATROL("Patrol", Icons.Default.LocalPolice, "nav_tab_patrol")
+    CONTACTS("Allies", Icons.Default.Quickreply, "nav_tab_contacts"),
+    PATROL("Patrol Duty", Icons.Default.LocalPolice, "nav_tab_patrol"),
+    COMMAND("Command", Icons.Default.CellTower, "nav_tab_command"),
+    SYNC("2-Device Link", Icons.Default.Sync, "nav_tab_sync")
 }
 
 @Composable
 fun TacticalBottomNavBar(
     selectedDestination: NavDestination,
+    currentUserRole: UserRole = UserRole.CITIZEN,
     onDestinationSelected: (NavDestination) -> Unit
 ) {
+    val roleDestinations = when (currentUserRole) {
+        UserRole.CITIZEN -> listOf(
+            NavDestination.HOME,
+            NavDestination.ROUTES,
+            NavDestination.CONTACTS,
+            NavDestination.SYNC
+        )
+        UserRole.RESPONDER_PATROL -> listOf(
+            NavDestination.PATROL,
+            NavDestination.ROUTES,
+            NavDestination.COMMAND,
+            NavDestination.SYNC
+        )
+        UserRole.COMMAND_CENTER -> listOf(
+            NavDestination.COMMAND,
+            NavDestination.PATROL,
+            NavDestination.ROUTES,
+            NavDestination.SYNC
+        )
+    }
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -59,7 +86,7 @@ fun TacticalBottomNavBar(
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            NavDestination.values().forEach { destination ->
+            roleDestinations.forEach { destination ->
                 val isSelected = selectedDestination == destination
                 val contentColor = if (isSelected) Primary else MaterialTheme.colorScheme.onSurfaceVariant
                 val fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
