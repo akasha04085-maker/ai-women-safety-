@@ -77,6 +77,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.ui.components.AddIncidentNoteDialog
 import com.example.ui.components.CancelSosPinDialog
+import com.example.ui.components.TacticalGoogleMap
 import com.example.ui.theme.Error
 import com.example.ui.theme.InverseOnSurface
 import com.example.ui.theme.InverseSurface
@@ -100,6 +101,8 @@ fun ActiveSosScreen(
     val officer by viewModel.assignedOfficer.collectAsStateWithLifecycle()
     val incidentLogs by viewModel.incidentLogs.collectAsStateWithLifecycle()
     val activeIncidentCode by viewModel.activeIncidentCode.collectAsStateWithLifecycle()
+    val myLoc by viewModel.myLocation.collectAsStateWithLifecycle()
+    val peerLoc by viewModel.peerLocation.collectAsStateWithLifecycle()
 
     var showCancelPinDialog by remember { mutableStateOf(false) }
     var showAddNoteDialog by remember { mutableStateOf(false) }
@@ -208,215 +211,16 @@ fun ActiveSosScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // 2. Live Map Card with Tactical Tracking Overlay
-            Card(
+            // 2. Real-time Google Maps SDK Tactical Tracker with Safest Corridors
+            TacticalGoogleMap(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(260.dp)
-                    .testTag("tactical_map_card"),
-                shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    // Map background
-                    AsyncImage(
-                        model = "https://lh3.googleusercontent.com/aida-public/AB6AXuDvx8E6sauEOvXqsEXj1qeM5hg8AJ5l2VUpDAYiLg_p7NyquiQ5H9Q5HW1AItEW7ZIz9mauaqO2YuADmae11sj_Y0-fvMAJE8CIVvvkerMywGNtYpoDYdLBEu3OweZaU7iZWjoFPyco3PVTTLVjEQJ7tYS0kCnKjr9WGJv1SvgyYvEzVH0eQ5eK0r7fB5sft-dNduQvVTSN6GDEOOZbQZbKxf3W3b6qilkNplUxvfREkyGn0xEdLAgz",
-                        contentDescription = "Tactical Live Tracking Map",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-
-                    // Dashed Tracking Route Canvas
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        val pathEffect = PathEffect.dashPathEffect(floatArrayOf(15f, 10f), 0f)
-                        drawLine(
-                            color = Color(0xFFE11D48),
-                            start = Offset(x = size.width * 0.22f, y = size.height * 0.72f),
-                            end = Offset(x = size.width * 0.78f, y = size.height * 0.28f),
-                            strokeWidth = 6f,
-                            pathEffect = pathEffect
-                        )
-                    }
-
-                    // Floating Badges at top
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(10.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = InverseSurface.copy(alpha = 0.92f),
-                            shadowElevation = 4.dp
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.NearMe,
-                                    contentDescription = null,
-                                    tint = SecondaryFixed,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Column {
-                                    Text(
-                                        text = "ETA to Victim",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                        color = Color.LightGray
-                                    )
-                                    Text(
-                                        text = etaString,
-                                        style = MaterialTheme.typography.titleSmall.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 13.sp
-                                        ),
-                                        color = Color.White
-                                    )
-                                }
-                            }
-                        }
-
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = Color.White.copy(alpha = 0.92f),
-                            shadowElevation = 4.dp
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(7.dp)
-                                        .clip(CircleShape)
-                                        .background(Secondary)
-                                )
-                                Text(
-                                    text = "Live GPS 1Hz",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                        }
-                    }
-
-                    // Victim Beacon (bottom-left)
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(start = 36.dp, bottom = 44.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .scale(pulseScale)
-                                .clip(CircleShape)
-                                .background(Secondary.copy(alpha = 0.4f))
-                        )
-                        Box(
-                            modifier = Modifier
-                                .size(24.dp)
-                                .clip(CircleShape)
-                                .background(Secondary)
-                                .border(2.dp, Color.White, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.PersonPinCircle,
-                                contentDescription = "Your Location",
-                                tint = Color.White,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
-
-                    // Patrol Unit Beacon (top-right)
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(end = 44.dp, top = 56.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .scale(pulseScale)
-                                .clip(CircleShape)
-                                .background(PrimaryContainer.copy(alpha = 0.4f))
-                        )
-                        Box(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(CircleShape)
-                                .background(PrimaryContainer)
-                                .border(2.dp, Color.White, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.DirectionsCar,
-                                contentDescription = "Patrol Unit",
-                                tint = Color.White,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
-
-                    // Map Bottom Detail Bar
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .align(Alignment.BottomCenter)
-                            .padding(6.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        color = Color.White.copy(alpha = 0.95f),
-                        shadowElevation = 2.dp
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.ShareLocation,
-                                    contentDescription = null,
-                                    tint = Secondary,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Text(
-                                    text = "Broadcasting 12.9716° N, 77.5946° E (Fused GPS accurate ±3m)",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1
-                                )
-                            }
-                            IconButton(
-                                onClick = {},
-                                modifier = Modifier.size(28.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.MyLocation,
-                                    contentDescription = "Recenter",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+                    .height(260.dp),
+                victimLocation = myLoc,
+                patrolLocation = peerLoc,
+                etaText = etaString,
+                showSafeCorridors = true
+            )
 
             // 3. Assigned Patrol & Officer Card
             Surface(

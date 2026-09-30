@@ -60,6 +60,8 @@ fun SafeRoutesScreen(
 ) {
     val context = LocalContext.current
     val routes by viewModel.safeRoutes.collectAsStateWithLifecycle()
+    val myLoc by viewModel.myLocation.collectAsStateWithLifecycle()
+    val peerLoc by viewModel.peerLocation.collectAsStateWithLifecycle()
 
     Column(
         modifier = Modifier
@@ -120,49 +122,15 @@ fun SafeRoutesScreen(
             }
         }
 
-        // Live Corridor Map Snapshot
-        Card(
+        // Live Google Maps SDK Safe Corridors Snapshot
+        com.example.ui.components.TacticalGoogleMap(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(180.dp),
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                AsyncImage(
-                    model = "https://lh3.googleusercontent.com/aida-public/AB6AXuDf2_twF0qR3CFWgUy3LvveAxyzK2IY0G7UFgX9lfAR3FK2kDGzmCDM55Mj1vaDUsvRlhK4lWz99bTcfdY2_ZfhVqPlpthIjNhQ9eeh-gCYwJXjElqhYt0eihlAA2yMi8KUr1SiuTU2aLrnPlvXwZ_h1B35sK7i0OVKTpFdpCvqoH0ZwOTrKotft966ieOBnAGiW8Qc-djZaBeTWEEYAMOwgrd66iQPPUxVhNYq_PHiJN0lgO4eiDIx",
-                    contentDescription = "Safe Pathways Map",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .padding(8.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color.Black.copy(alpha = 0.75f)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(SecondaryFixed)
-                        )
-                        Text(
-                            text = "3 Safe Paths Available • Sector 28-29 Mesh",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = Color.White
-                        )
-                    }
-                }
-            }
-        }
+                .height(220.dp),
+            victimLocation = myLoc,
+            patrolLocation = peerLoc,
+            showSafeCorridors = true
+        )
 
         Text(
             text = "Recommended Pathways",
