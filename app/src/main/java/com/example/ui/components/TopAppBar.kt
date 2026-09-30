@@ -1,6 +1,13 @@
 package com.example.ui.components
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,21 +23,26 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CellTower
+import androidx.compose.material.icons.filled.CrisisAlert
+import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.LocalPolice
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.WifiTethering
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -39,12 +51,11 @@ import androidx.compose.ui.unit.sp
 import com.example.model.UserRole
 import com.example.ui.theme.Primary
 import com.example.ui.theme.Secondary
-import com.example.ui.theme.SecondaryContainer
 
 @Composable
 fun TacticalTopAppBar(
     title: String,
-    subtitle: String = "GPS Precision: 3m",
+    subtitle: String = "GPS Accuracy: ±3m • Realtime",
     showBack: Boolean = false,
     onBackClick: () -> Unit = {},
     currentUserRole: UserRole = UserRole.CITIZEN,
@@ -54,12 +65,27 @@ fun TacticalTopAppBar(
     isP2pConnected: Boolean = false,
     onProfileClick: () -> Unit = {}
 ) {
+    val infiniteTransition = rememberInfiniteTransition(label = "gpsPulse")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseAlpha"
+    )
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("tactical_top_app_bar"),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-        shadowElevation = 2.dp
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
+        shadowElevation = 3.dp,
+        border = androidx.compose.foundation.BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+        )
     ) {
         Row(
             modifier = Modifier
@@ -77,6 +103,7 @@ fun TacticalTopAppBar(
                         onClick = onBackClick,
                         modifier = Modifier
                             .size(44.dp)
+                            .clip(CircleShape)
                             .testTag("top_bar_back_button")
                     ) {
                         Icon(
@@ -87,32 +114,43 @@ fun TacticalTopAppBar(
                     }
                     Spacer(modifier = Modifier.width(4.dp))
                 } else {
+                    // Tactically styled Role Emblem
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
+                            .size(42.dp)
+                            .clip(RoundedCornerShape(12.dp))
                             .background(
                                 when (currentUserRole) {
                                     UserRole.CITIZEN -> Primary.copy(alpha = 0.12f)
-                                    UserRole.RESPONDER_PATROL -> Secondary.copy(alpha = 0.12f)
-                                    UserRole.COMMAND_CENTER -> Color(0xFF6750A4).copy(alpha = 0.12f)
+                                    UserRole.RESPONDER_PATROL -> Color(0xFF0284C7).copy(alpha = 0.12f)
+                                    UserRole.COMMAND_CENTER -> Color(0xFF7C3AED).copy(alpha = 0.12f)
                                 }
-                            ),
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = when (currentUserRole) {
+                                    UserRole.CITIZEN -> Primary.copy(alpha = 0.3f)
+                                    UserRole.RESPONDER_PATROL -> Color(0xFF0284C7).copy(alpha = 0.3f)
+                                    UserRole.COMMAND_CENTER -> Color(0xFF7C3AED).copy(alpha = 0.3f)
+                                },
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            .clickable { onSwitchRoleClick?.invoke() },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = when (currentUserRole) {
                                 UserRole.CITIZEN -> Icons.Default.Security
                                 UserRole.RESPONDER_PATROL -> Icons.Default.LocalPolice
-                                UserRole.COMMAND_CENTER -> Icons.Default.CellTower
+                                UserRole.COMMAND_CENTER -> Icons.Default.CrisisAlert
                             },
-                            contentDescription = "Role Icon",
+                            contentDescription = "Role Emblem",
                             tint = when (currentUserRole) {
                                 UserRole.CITIZEN -> Primary
-                                UserRole.RESPONDER_PATROL -> Secondary
-                                UserRole.COMMAND_CENTER -> Color(0xFF6750A4)
+                                UserRole.RESPONDER_PATROL -> Color(0xFF0284C7)
+                                UserRole.COMMAND_CENTER -> Color(0xFF7C3AED)
                             },
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                     Spacer(modifier = Modifier.width(10.dp))
@@ -126,21 +164,24 @@ fun TacticalTopAppBar(
                         Text(
                             text = title,
                             style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 16.sp,
+                                letterSpacing = (-0.2).sp
                             ),
                             color = MaterialTheme.colorScheme.onSurface
                         )
 
-                        // Role Tag
+                        // Role Tag Chip
                         Surface(
-                            shape = RoundedCornerShape(4.dp),
+                            shape = RoundedCornerShape(6.dp),
                             color = when (currentUserRole) {
                                 UserRole.CITIZEN -> Primary
-                                UserRole.RESPONDER_PATROL -> Secondary
-                                UserRole.COMMAND_CENTER -> Color(0xFF6750A4)
+                                UserRole.RESPONDER_PATROL -> Color(0xFF0284C7)
+                                UserRole.COMMAND_CENTER -> Color(0xFF7C3AED)
                             },
-                            modifier = Modifier.clickable { onSwitchRoleClick?.invoke() }
+                            modifier = Modifier
+                                .clickable { onSwitchRoleClick?.invoke() }
+                                .testTag("top_bar_role_badge")
                         ) {
                             Text(
                                 text = when (currentUserRole) {
@@ -148,10 +189,11 @@ fun TacticalTopAppBar(
                                     UserRole.RESPONDER_PATROL -> "PATROL"
                                     UserRole.COMMAND_CENTER -> "DISPATCH"
                                 },
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 8.5.sp,
-                                    fontWeight = FontWeight.ExtraBold
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 0.6.sp
                                 ),
                                 color = Color.White
                             )
@@ -160,17 +202,31 @@ fun TacticalTopAppBar(
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
+                        // Pulsing GPS Satellite Dot
                         Box(
                             modifier = Modifier
-                                .size(6.dp)
+                                .size(7.dp)
                                 .clip(CircleShape)
-                                .background(if (isP2pConnected) Secondary else Color(0xFF10B981))
+                                .background(
+                                    (if (isP2pConnected) Secondary else Color(0xFF10B981)).copy(
+                                        alpha = pulseAlpha
+                                    )
+                                )
+                        )
+                        Icon(
+                            imageVector = Icons.Default.GpsFixed,
+                            contentDescription = null,
+                            tint = if (isP2pConnected) Secondary else Color(0xFF10B981),
+                            modifier = Modifier.size(11.dp)
                         )
                         Text(
                             text = subtitle,
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            ),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -180,16 +236,17 @@ fun TacticalTopAppBar(
             // Action Tray
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 // Demo SOS Trigger Quick Pill
                 if (onDemoClick != null) {
                     Surface(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(10.dp))
                             .clickable { onDemoClick() }
                             .testTag("btn_top_bar_demo_sos"),
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh
+                        color = Primary.copy(alpha = 0.08f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Primary.copy(alpha = 0.25f))
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
@@ -197,16 +254,16 @@ fun TacticalTopAppBar(
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Science,
+                                imageVector = Icons.Default.CrisisAlert,
                                 contentDescription = null,
                                 tint = Primary,
                                 modifier = Modifier.size(14.dp)
                             )
                             Text(
-                                text = "Simulate SOS",
+                                text = "Test SOS",
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 10.sp
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 11.sp
                                 ),
                                 color = Primary
                             )
@@ -220,11 +277,16 @@ fun TacticalTopAppBar(
                         onClick = onPairDevicesClick,
                         modifier = Modifier
                             .size(38.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (isP2pConnected) Secondary.copy(alpha = 0.12f)
+                                else MaterialTheme.colorScheme.surfaceContainerHigh
+                            )
                             .testTag("btn_top_bar_sync")
                     ) {
                         Box(contentAlignment = Alignment.TopEnd) {
                             Icon(
-                                imageVector = Icons.Default.Sync,
+                                imageVector = if (isP2pConnected) Icons.Default.WifiTethering else Icons.Default.Sync,
                                 contentDescription = "2-Device Sync",
                                 tint = if (isP2pConnected) Secondary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(20.dp)
@@ -232,9 +294,10 @@ fun TacticalTopAppBar(
                             if (isP2pConnected) {
                                 Box(
                                     modifier = Modifier
-                                        .size(7.dp)
+                                        .size(8.dp)
                                         .clip(CircleShape)
                                         .background(Secondary)
+                                        .border(1.dp, MaterialTheme.colorScheme.surface, CircleShape)
                                 )
                             }
                         }
@@ -248,6 +311,11 @@ fun TacticalTopAppBar(
                         .size(38.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                            shape = CircleShape
+                        )
                         .testTag("btn_top_bar_profile")
                 ) {
                     Icon(

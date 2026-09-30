@@ -24,7 +24,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cable
 import androidx.compose.material.icons.filled.CellTower
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.Mic
@@ -39,6 +42,8 @@ import androidx.compose.material.icons.filled.ShareLocation
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.VpnKey
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.filled.WifiFind
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -86,7 +91,10 @@ fun DevicePairingScreen(
     val p2pState by viewModel.p2pState.collectAsStateWithLifecycle()
     val peerDevice by viewModel.peerDevice.collectAsStateWithLifecycle()
     val hostIp by viewModel.currentHostIp.collectAsStateWithLifecycle()
+    val availableIps by viewModel.availableHostIps.collectAsStateWithLifecycle()
     val pingLatency by viewModel.pingLatencyMs.collectAsStateWithLifecycle()
+    val connectionError by viewModel.lastConnectionError.collectAsStateWithLifecycle()
+    val isScanning by viewModel.isSubnetScanning.collectAsStateWithLifecycle()
     val myLoc by viewModel.myLocation.collectAsStateWithLifecycle()
     val peerLoc by viewModel.peerLocation.collectAsStateWithLifecycle()
     val audioAmp by viewModel.audioAmplitude.collectAsStateWithLifecycle()
@@ -94,6 +102,7 @@ fun DevicePairingScreen(
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var targetIpInput by remember { mutableStateOf(hostIp) }
+    var sessionCodeInput by remember { mutableStateOf("SOS-8942") }
     var isPttHolding by remember { mutableStateOf(false) }
 
     Column(
@@ -109,7 +118,8 @@ fun DevicePairingScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surfaceContainerLowest,
-            shadowElevation = 1.dp
+            shadowElevation = 2.dp,
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
         ) {
             Row(
                 modifier = Modifier
@@ -125,7 +135,7 @@ fun DevicePairingScreen(
                     Box(
                         modifier = Modifier
                             .size(42.dp)
-                            .clip(CircleShape)
+                            .clip(RoundedCornerShape(12.dp))
                             .background(SecondaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
@@ -143,8 +153,8 @@ fun DevicePairingScreen(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Real-time Location Stream & Voice Walkie-Talkie",
-                            style = MaterialTheme.typography.bodySmall,
+                            text = "Real-Time Location & Voice Walkie-Talkie Bridge",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
                             color = MaterialTheme.colorScheme.tertiary
                         )
                     }
@@ -175,6 +185,41 @@ fun DevicePairingScreen(
                             else -> MaterialTheme.colorScheme.onSurface
                         }
                     )
+                }
+            }
+        }
+
+        // Diagnostic Connection Error Alert (When 2 devices fail to connect)
+        AnimatedVisibility(visible = connectionError != null && p2pState != P2PState.CONNECTED) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ErrorOutline,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Connection Diagnostic",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Text(
+                            text = connectionError ?: "",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
                 }
             }
         }
@@ -439,43 +484,89 @@ fun DevicePairingScreen(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Open this mode on Phone 1. It starts a local P2P beacon socket server on port 8942 and broadcasts its real-time GPS location coordinates and audio relay.",
+                            text = "Starts a local P2P socket server on port 8942 (listening on 0.0.0.0 across all network interfaces). Device 2 can connect to your IP or via the Session Code.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
-                        // Host IP & Port Info Box
+                        // Detected IP Interfaces List
+                        Text(
+                            text = "DETECTED IP ADDRESSES ON THIS DEVICE:",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            availableIps.forEach { iface ->
+                                val isSelected = hostIp == iface.ipAddress
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { viewModel.selectHostIp(iface.ipAddress) },
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSelected) Primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceContainerLow,
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        if (isSelected) Primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                                    )
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Text(
+                                                text = iface.displayName,
+                                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                                color = if (isSelected) Primary else MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Text(
+                                                text = "Port: 8942",
+                                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        if (isSelected) {
+                                            Surface(
+                                                shape = RoundedCornerShape(4.dp),
+                                                color = Primary
+                                            ) {
+                                                Text(
+                                                    text = "BROADCASTING",
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold),
+                                                    color = Color.White
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Session Code Box (Cloud Relay Fallback)
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(10.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainerLow
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh
                         ) {
-                            Column(
-                                modifier = Modifier.padding(12.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text("Local Host IP Address:", fontSize = 11.sp, color = MaterialTheme.colorScheme.tertiary)
-                                    Text("Port:", fontSize = 11.sp, color = MaterialTheme.colorScheme.tertiary)
-                                }
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
+                                Column {
+                                    Text("Session Room Code (Cloud Bridge):", fontSize = 11.sp, color = MaterialTheme.colorScheme.tertiary)
                                     Text(
-                                        text = hostIp,
-                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                        color = Primary
-                                    )
-                                    Text(
-                                        text = "8942",
-                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                        color = Primary
+                                        text = sessionCodeInput,
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+                                        color = Secondary
                                     )
                                 }
+                                Icon(Icons.Default.CloudSync, contentDescription = null, tint = Secondary)
                             }
                         }
 
@@ -498,7 +589,7 @@ fun DevicePairingScreen(
                                     strokeWidth = 2.dp
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Listening for Device 2... (Active)", fontWeight = FontWeight.Bold)
+                                Text("Hosting Active on $hostIp:8942", fontWeight = FontWeight.Bold)
                             } else {
                                 Icon(
                                     imageVector = Icons.Default.CellTower,
@@ -533,10 +624,67 @@ fun DevicePairingScreen(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Enter Device 1's IP address (shown on Device 1's screen) or connect over the same Wi-Fi / Hotspot to sync live GPS and two-way voice.",
+                            text = "Enter Device 1's IP address (shown on Device 1's screen) or tap 'Auto-Scan' to find it on your Wi-Fi/Hotspot.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+
+                        // Quick-Fill IP Chips
+                        Text(
+                            text = "QUICK-FILL IP TARGETS:",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Surface(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { targetIpInput = hostIp },
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh
+                            ) {
+                                Text(
+                                    text = "Host IP: $hostIp",
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+
+                            Surface(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { targetIpInput = "127.0.0.1" },
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh
+                            ) {
+                                Text(
+                                    text = "127.0.0.1 (Local)",
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+
+                            Surface(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { targetIpInput = "10.0.2.2" },
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh
+                            ) {
+                                Text(
+                                    text = "10.0.2.2 (Emulator)",
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
 
                         OutlinedTextField(
                             value = targetIpInput,
@@ -550,11 +698,12 @@ fun DevicePairingScreen(
                             singleLine = true
                         )
 
+                        // Connect Button (Direct Socket)
                         Button(
                             onClick = { viewModel.connectToPeer(targetIpInput, ConnectionRole.RESPONDER_PATROL) },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(50.dp)
+                                .height(48.dp)
                                 .testTag("btn_connect_to_peer"),
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(
@@ -571,21 +720,102 @@ fun DevicePairingScreen(
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text("Connecting to Host...", fontWeight = FontWeight.Bold)
                             } else {
-                                Icon(
-                                    imageVector = Icons.Default.Link,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(20.dp)
+                                Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Connect to Device 1 (Direct TCP)", fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        // Auto-Scan Local Subnet Button
+                        Button(
+                            onClick = { viewModel.scanSubnetAndConnect(ConnectionRole.RESPONDER_PATROL) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp)
+                                .testTag("btn_auto_scan_subnet"),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            )
+                        ) {
+                            if (isScanning) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Connect & Sync with Device 1", fontWeight = FontWeight.Bold)
+                                Text("Scanning Local Network...", fontWeight = FontWeight.Bold, fontSize = 11.5.sp)
+                            } else {
+                                Icon(Icons.Default.WifiFind, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Auto-Scan Local Wi-Fi / Hotspot", fontWeight = FontWeight.Bold, fontSize = 11.5.sp)
                             }
+                        }
+
+                        // Session Code Fallback (Bypasses LAN isolation)
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(Icons.Default.CloudSync, contentDescription = null, tint = Color(0xFF0284C7), modifier = Modifier.size(18.dp))
+                                    Text("Bypass Wi-Fi Isolation via Session Bridge", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                                }
+                                Text(
+                                    text = "If phones are on separate cellular data or Wi-Fi blocks peer sockets, connect instantly using Room Code:",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Button(
+                                    onClick = { viewModel.connectViaSessionCode("SOS-8942", ConnectionRole.RESPONDER_PATROL) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(40.dp)
+                                        .testTag("btn_connect_session_bridge"),
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFF0284C7),
+                                        contentColor = Color.White
+                                    )
+                                ) {
+                                    Text("Connect via Room Code: SOS-8942", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+
+                        // 1-Tap Simulated Peer Demo for Single-Device Users
+                        Button(
+                            onClick = { viewModel.simulateConnectedPeer(ConnectionRole.VICTIM_BEACON) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(40.dp)
+                                .testTag("btn_simulate_peer_link"),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                contentColor = Primary
+                            )
+                        ) {
+                            Icon(Icons.Default.Radar, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Simulate Patrol Unit Link (Single-Device Demo)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
         }
 
-        // Instructions Card
+        // Troubleshooting Guide Card
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -596,14 +826,20 @@ fun DevicePairingScreen(
                 modifier = Modifier.padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(Icons.Default.Info, contentDescription = null, tint = Primary, modifier = Modifier.size(18.dp))
+                    Text(
+                        text = "2-Device Connection Troubleshooting",
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
                 Text(
-                    text = "How Two-Device Sync Works",
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "• Connect both devices to the same Wi-Fi or Personal Hotspot.\n• On Device 1, tap 'Start Hosting Distress Beacon'.\n• On Device 2, enter Device 1's IP and tap 'Connect & Sync'.\n• GPS coordinates stream at 1Hz, live distance updates, and pressing 'Hold to Speak' streams high-fidelity 16kHz PCM audio bidirectionally!",
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                    text = "1. Mobile Hotspot: Turn on Personal Hotspot on Phone 1 and connect Phone 2 to it. This guarantees direct TCP socket routing without public Wi-Fi firewall blocks.\n2. Same Wi-Fi: Ensure both devices are on the same 2.4GHz / 5GHz Wi-Fi band.\n3. Exact IP: Verify the IP entered on Device 2 matches one of the IP addresses shown on Device 1's Host screen.\n4. Wi-Fi AP Isolation: If on public/campus Wi-Fi where devices are isolated from each other, tap 'Connect via Room Code: SOS-8942' to link over the cloud relay.",
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 16.sp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }

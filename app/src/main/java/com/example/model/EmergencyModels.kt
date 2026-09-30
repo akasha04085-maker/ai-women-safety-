@@ -159,3 +159,25 @@ data class EmergencyHub(
     val isVerified: Boolean = true,
     val description: String = ""
 )
+
+data class ContactBroadcastLog(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val contactName: String,
+    val contactPhone: String,
+    val timestamp: Long = System.currentTimeMillis(),
+    val formattedTime: String,
+    val latitude: Double,
+    val longitude: Double,
+    val mapsUrl: String,
+    val accuracyMeters: Float = 3.0f,
+    val deliveryChannel: String = "SMS / Cellular Dispatch",
+    val status: String = "DELIVERED"
+)
+
+data class NetworkInterfaceInfo(
+    val interfaceName: String,
+    val ipAddress: String,
+    val displayName: String,
+    val isRecommended: Boolean = false
+)
+

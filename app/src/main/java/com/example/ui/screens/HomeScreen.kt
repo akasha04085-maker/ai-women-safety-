@@ -32,12 +32,21 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AltRoute
 import androidx.compose.material.icons.filled.BatteryChargingFull
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Contacts
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.CellTower
+import androidx.compose.material.icons.filled.CrisisAlert
+import androidx.compose.material.icons.filled.DirectionsWalk
+import androidx.compose.material.icons.filled.Diversity3
 import androidx.compose.material.icons.filled.EmergencyShare
+import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.GpsFixed
+import androidx.compose.material.icons.filled.HealthAndSafety
+import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.LocalPolice
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Map
-import androidx.compose.material.icons.filled.MedicalServices
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.PhoneInTalk
 import androidx.compose.material.icons.filled.PinDrop
@@ -46,6 +55,7 @@ import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.SupportAgent
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Vibration
@@ -69,6 +79,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -113,14 +124,23 @@ fun HomeScreen(
 
     // Infinite radar pulse for SOS ring
     val infiniteTransition = rememberInfiniteTransition(label = "radarPulse")
-    val pulseScale by infiniteTransition.animateFloat(
+    val pulseScale1 by infiniteTransition.animateFloat(
         initialValue = 1f,
-        targetValue = 1.25f,
+        targetValue = 1.32f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = FastOutSlowInEasing),
+            animation = tween(1600, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "pulseScale"
+        label = "pulseScale1"
+    )
+    val pulseScale2 by infiniteTransition.animateFloat(
+        initialValue = 1.05f,
+        targetValue = 1.2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseScale2"
     )
 
     Column(
@@ -131,66 +151,80 @@ fun HomeScreen(
             .testTag("home_screen_content"),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // 1. Women Safety Top Card Banner
+        // 1. Women Safety Guardian Header Banner
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("women_safety_header_card"),
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surfaceContainerLowest,
-            shadowElevation = 1.dp
+            shadowElevation = 2.dp,
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                Primary.copy(alpha = 0.2f)
+            )
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(12.dp),
+                    .padding(14.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(42.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(PrimaryFixed),
+                            .size(46.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                Brush.radialGradient(
+                                    colors = listOf(PrimaryFixed, PrimaryFixedDim)
+                                )
+                            )
+                            .border(1.dp, Primary.copy(alpha = 0.35f), RoundedCornerShape(12.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Shield,
                             contentDescription = "Guardian Shield",
                             tint = Primary,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(26.dp)
                         )
                     }
                     Column {
-                        Text(
-                            text = "WOMEN SAFETY",
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                letterSpacing = 1.sp
-                            ),
-                            color = Primary
-                        )
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "WOMEN SAFETY SENTINEL",
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 1.sp
+                                ),
+                                color = Primary
+                            )
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(6.dp)
+                                    .size(7.dp)
                                     .clip(CircleShape)
-                                    .background(Secondary)
+                                    .background(Color(0xFF10B981))
                             )
                             Text(
-                                text = "GPS Active: High Accuracy • ±4m",
+                                text = "GPS Sentinel Active • Precision: ±3m",
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 11.sp,
+                                    fontSize = 11.5.sp,
                                     fontWeight = FontWeight.SemiBold
                                 ),
-                                color = Secondary
+                                color = Color(0xFF047857)
                             )
                         }
                     }
@@ -198,27 +232,42 @@ fun HomeScreen(
 
                 Surface(
                     shape = RoundedCornerShape(50),
-                    color = SecondaryContainer
+                    color = SecondaryContainer,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Secondary.copy(alpha = 0.3f))
                 ) {
-                    Text(
-                        text = "Encrypted",
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 10.sp
-                        ),
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(11.dp)
+                        )
+                        Text(
+                            text = "AES-256",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 10.sp
+                            ),
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
                 }
             }
         }
 
-        // 2. Demo Mode Active Card
+        // 2. Demo Simulation Quick Action Strip
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(14.dp),
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            shadowElevation = 1.dp
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+            )
         ) {
             Row(
                 modifier = Modifier
@@ -235,7 +284,7 @@ fun HomeScreen(
                         modifier = Modifier
                             .size(34.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surfaceContainerLowest),
+                            .background(Primary.copy(alpha = 0.12f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -247,13 +296,13 @@ fun HomeScreen(
                     }
                     Column {
                         Text(
-                            text = "Demo Mode Active",
+                            text = "Rapid Test Environment",
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Ready for Instant Dispatch test",
-                            style = MaterialTheme.typography.bodySmall,
+                            text = "Simulate full dispatch & peer radar",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                             color = MaterialTheme.colorScheme.tertiary
                         )
                     }
@@ -265,7 +314,7 @@ fun HomeScreen(
                         onNavigateToActiveSos()
                     },
                     modifier = Modifier
-                        .height(34.dp)
+                        .height(36.dp)
                         .testTag("btn_simulate_sos"),
                     shape = RoundedCornerShape(50),
                     colors = ButtonDefaults.buttonColors(
@@ -273,21 +322,31 @@ fun HomeScreen(
                         contentColor = Color.White
                     )
                 ) {
+                    Icon(
+                        imageVector = Icons.Default.CrisisAlert,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text("Simulate", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
 
-        // 3. Live Sentinel Context Card
+        // 3. Live Sentinel Context Card with Telemetry Badges
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surfaceContainerLowest,
-            shadowElevation = 1.dp
+            shadowElevation = 2.dp,
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+            )
         ) {
             Column(
                 modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -296,161 +355,179 @@ fun HomeScreen(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.MyLocation,
                             contentDescription = null,
-                            tint = Secondary,
+                            tint = Color(0xFF10B981),
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = "Live Sentinel Context",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                            text = "Live Sentinel Location Context",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 0.5.sp
+                            ),
                             color = MaterialTheme.colorScheme.tertiary
                         )
                     }
                     Text(
                         text = currentTimeString,
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp
+                        ),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
+                            .size(42.dp)
+                            .clip(RoundedCornerShape(10.dp))
                             .background(MaterialTheme.colorScheme.surfaceContainer),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.PinDrop,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(20.dp)
+                            tint = Primary,
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                     Column {
                         Text(
-                            text = "MG Road Metro Station",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            text = "MG Road Safe Transit Hub",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Sector 28, Gurugram, Haryana",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.tertiary
+                            text = "Sector 28, Gurugram • 24/7 CCTV & Patrolling",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
 
-                // 3 Status Badges (Battery, 5G, AI Safe)
+                // 3 Status Badges (Battery, 5G, Sentinel Armed)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Surface(
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerLow
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.BatteryChargingFull,
                                 contentDescription = null,
-                                tint = Secondary,
-                                modifier = Modifier.size(15.dp)
+                                tint = Color(0xFF10B981),
+                                modifier = Modifier.size(16.dp)
                             )
-                            Text("88% Normal", fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                            Text("88% Batt", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 
                     Surface(
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerLow
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Wifi,
+                                imageVector = Icons.Default.CellTower,
                                 contentDescription = null,
-                                tint = Secondary,
-                                modifier = Modifier.size(15.dp)
+                                tint = Color(0xFF0284C7),
+                                modifier = Modifier.size(16.dp)
                             )
-                            Text("5G Ultra", fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                            Text("5G Ultra", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 
                     Surface(
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerLow
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Security,
+                                imageVector = Icons.Default.HealthAndSafety,
                                 contentDescription = null,
-                                tint = Secondary,
-                                modifier = Modifier.size(15.dp)
+                                tint = Color(0xFF10B981),
+                                modifier = Modifier.size(16.dp)
                             )
-                            Text("AI Safe", fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                            Text("Protected", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
 
-                // 1-Tap Google Maps Emergency Hubs Quick Link
+                // 1-Tap Google Maps Emergency Hubs Ribbon
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(12.dp))
                         .clickable { onNavigateToHubs?.invoke() }
                         .testTag("btn_home_explore_emergency_hubs"),
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh
+                    color = Primary.copy(alpha = 0.08f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Primary.copy(alpha = 0.25f))
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Map,
-                                contentDescription = null,
-                                tint = Primary,
-                                modifier = Modifier.size(18.dp)
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(Primary),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Explore,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                             Column {
                                 Text(
-                                    text = "Nearby Emergency Hubs",
+                                    text = "Explore Nearby Emergency Hubs",
                                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "7 Police, Trauma & Safe Havens on Google Maps",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    text = "7 Police, Hospital & Safe Havens on Google Maps",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
+                                    color = Primary
                                 )
                             }
                         }
@@ -468,16 +545,20 @@ fun HomeScreen(
         // 4. Giant Concentric SOS Master Button Component
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(22.dp),
             color = MaterialTheme.colorScheme.surfaceContainerLowest,
-            shadowElevation = 2.dp
+            shadowElevation = 3.dp,
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                Primary.copy(alpha = 0.25f)
+            )
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(18.dp),
+                    .padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -486,19 +567,22 @@ fun HomeScreen(
                 ) {
                     Surface(
                         shape = RoundedCornerShape(50),
-                        color = MaterialTheme.colorScheme.surfaceContainer
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh
                     ) {
                         Text(
-                            text = "STATUS: IDLE / READY",
+                            text = "SENTINEL STATUS: ARMED",
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.tertiary
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 0.5.sp
+                            ),
+                            color = Color(0xFF047857)
                         )
                     }
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Sensors,
@@ -507,52 +591,69 @@ fun HomeScreen(
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = "Standby",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            text = "Instant Alert",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
                             color = Primary
                         )
                     }
                 }
 
-                // Interactive Concentric Circle SOS Trigger
+                // Interactive Concentric Circle SOS Trigger with Glow
                 Box(
                     modifier = Modifier
-                        .size(200.dp)
-                        .padding(vertical = 8.dp),
+                        .size(210.dp)
+                        .padding(vertical = 4.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     // Pulsing Outer Rings
                     Box(
                         modifier = Modifier
-                            .size(180.dp)
-                            .scale(pulseScale)
+                            .size(190.dp)
+                            .scale(pulseScale1)
                             .clip(CircleShape)
-                            .background(PrimaryFixed.copy(alpha = 0.35f))
+                            .background(
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        PrimaryFixed.copy(alpha = 0.45f),
+                                        PrimaryFixedDim.copy(alpha = 0.05f)
+                                    )
+                                )
+                            )
                     )
                     Box(
                         modifier = Modifier
-                            .size(156.dp)
+                            .size(164.dp)
+                            .scale(pulseScale2)
                             .clip(CircleShape)
-                            .background(PrimaryFixedDim.copy(alpha = 0.45f))
+                            .background(PrimaryFixedDim.copy(alpha = 0.5f))
                     )
 
                     // Circular Progress Ring for Hold
                     if (isHolding) {
                         CircularProgressIndicator(
                             progress = { holdProgress },
-                            modifier = Modifier.size(158.dp),
-                            color = Primary,
-                            strokeWidth = 6.dp,
-                            trackColor = MaterialTheme.colorScheme.surfaceContainer
+                            modifier = Modifier.size(160.dp),
+                            color = Color(0xFFFFB3B6),
+                            strokeWidth = 7.dp,
+                            trackColor = Primary.copy(alpha = 0.3f)
                         )
                     }
 
-                    // Master Button
+                    // Master Button with Radial Gradient Core
                     Box(
                         modifier = Modifier
-                            .size(140.dp)
+                            .size(144.dp)
                             .clip(CircleShape)
-                            .background(Primary)
+                            .background(
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        Color(0xFFE11D48),
+                                        Primary,
+                                        Color(0xFF880020)
+                                    )
+                                )
+                            )
+                            .border(3.dp, Color.White.copy(alpha = 0.4f), CircleShape)
                             .pointerInput(Unit) {
                                 detectTapGestures(
                                     onPress = {
@@ -592,20 +693,23 @@ fun HomeScreen(
                                 imageVector = Icons.Default.EmergencyShare,
                                 contentDescription = "SOS Beacon",
                                 tint = Color.White,
-                                modifier = Modifier.size(34.dp)
+                                modifier = Modifier.size(36.dp)
                             )
                             Text(
                                 text = "SOS",
                                 style = MaterialTheme.typography.headlineMedium.copy(
                                     fontWeight = FontWeight.ExtraBold,
-                                    letterSpacing = 2.sp
+                                    letterSpacing = 2.5.sp
                                 ),
                                 color = Color.White
                             )
                             Text(
-                                text = if (isHolding) "Holding (${((1f - holdProgress) * 3).toInt() + 1}s)..." else "Press to Trigger",
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                color = Color.White.copy(alpha = 0.9f)
+                                text = if (isHolding) "Holding (${((1f - holdProgress) * 3).toInt() + 1}s)..." else "Tap or Hold 3s",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                color = Color.White.copy(alpha = 0.95f)
                             )
                         }
                     }
@@ -613,26 +717,26 @@ fun HomeScreen(
 
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Vibration,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.tertiary,
+                            tint = Primary,
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
                             text = "Hold 3s for Silent Sentinel Broadcast",
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                     Text(
-                        text = "Target Digital Dispatch: ~3.0s (Server & Network Target)",
+                        text = "Instantly transmits real-time GPS & silent audio to responders",
                         style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                         color = MaterialTheme.colorScheme.tertiary,
                         textAlign = TextAlign.Center
@@ -641,7 +745,7 @@ fun HomeScreen(
             }
         }
 
-        // 5. 2x2 Quick Action Cards
+        // 5. 2x2 Quick Action Cards with Elevated Icons & Design
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -650,11 +754,12 @@ fun HomeScreen(
             Surface(
                 modifier = Modifier
                     .weight(1f)
-                    .height(150.dp)
+                    .height(156.dp)
                     .testTag("card_emergency_contacts"),
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                shadowElevation = 1.dp
+                shadowElevation = 2.dp,
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
             ) {
                 Column(
                     modifier = Modifier
@@ -664,26 +769,26 @@ fun HomeScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(10.dp))
                             .background(SecondaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Contacts,
+                            imageVector = Icons.Default.Diversity3,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                     Column {
                         Text(
-                            text = "Emergency Contacts",
+                            text = "Emergency Allies",
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "3 Trusted Allies Active",
+                            text = "3 Trusted Allies Ready",
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                             color = MaterialTheme.colorScheme.tertiary
                         )
@@ -692,14 +797,14 @@ fun HomeScreen(
                         onClick = onNavigateToContacts,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(32.dp),
+                            .height(34.dp),
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                             contentColor = MaterialTheme.colorScheme.onSurface
                         )
                     ) {
-                        Text("Notify Live GPS", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Notify Allies", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.Send,
@@ -714,11 +819,12 @@ fun HomeScreen(
             Surface(
                 modifier = Modifier
                     .weight(1f)
-                    .height(150.dp)
+                    .height(156.dp)
                     .testTag("card_safe_navigation"),
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                shadowElevation = 1.dp
+                shadowElevation = 2.dp,
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
             ) {
                 Column(
                     modifier = Modifier
@@ -728,26 +834,26 @@ fun HomeScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFF0284C7).copy(alpha = 0.15f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.AltRoute,
                             contentDescription = null,
-                            tint = Primary,
-                            modifier = Modifier.size(20.dp)
+                            tint = Color(0xFF0284C7),
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                     Column {
                         Text(
-                            text = "Safe Navigation",
+                            text = "Safe Corridors",
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "AI Well-Lit Pathway",
+                            text = "Well-Lit & Monitored",
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                             color = MaterialTheme.colorScheme.tertiary
                         )
@@ -756,19 +862,19 @@ fun HomeScreen(
                         onClick = onNavigateToRoutes,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(32.dp),
+                            .height(34.dp),
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                             contentColor = MaterialTheme.colorScheme.onSurface
                         )
                     ) {
-                        Text("Preview Safe Map", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Safe Pathway", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(
-                            imageVector = Icons.Default.Visibility,
+                            imageVector = Icons.Default.DirectionsWalk,
                             contentDescription = null,
-                            modifier = Modifier.size(12.dp)
+                            modifier = Modifier.size(14.dp)
                         )
                     }
                 }
@@ -783,7 +889,7 @@ fun HomeScreen(
             Surface(
                 modifier = Modifier
                     .weight(1f)
-                    .height(150.dp)
+                    .height(156.dp)
                     .clickable {
                         val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:112"))
                         context.startActivity(intent)
@@ -791,7 +897,7 @@ fun HomeScreen(
                     .testTag("card_direct_police_112"),
                 shape = RoundedCornerShape(16.dp),
                 color = Primary,
-                shadowElevation = 2.dp
+                shadowElevation = 3.dp
             ) {
                 Column(
                     modifier = Modifier
@@ -806,16 +912,16 @@ fun HomeScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.15f)),
+                                .size(38.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color.White.copy(alpha = 0.2f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.PhoneInTalk,
                                 contentDescription = null,
                                 tint = Color.White,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         }
                         Surface(
@@ -835,12 +941,12 @@ fun HomeScreen(
                     }
                     Column {
                         Text(
-                            text = "Direct Police 112",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            text = "Police 112 Dial",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
                             color = Color.White
                         )
                         Text(
-                            text = "Instant Call Bridge",
+                            text = "Instant 112 Bridge",
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                             color = Color.White.copy(alpha = 0.85f)
                         )
@@ -851,7 +957,7 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Connect Now",
+                            text = "Call 112",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                             color = Color.White
                         )
@@ -865,15 +971,16 @@ fun HomeScreen(
                 }
             }
 
-            // Card 4: Discreet Alert
+            // Card 4: Women Helpline 1091 & Discreet Alert
             Surface(
                 modifier = Modifier
                     .weight(1f)
-                    .height(150.dp)
+                    .height(156.dp)
                     .testTag("card_discreet_alert"),
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                shadowElevation = 1.dp
+                shadowElevation = 2.dp,
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
             ) {
                 Column(
                     modifier = Modifier
@@ -883,16 +990,16 @@ fun HomeScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surfaceContainer),
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFF7C3AED).copy(alpha = 0.15f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.RingVolume,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.size(20.dp)
+                            tint = Color(0xFF7C3AED),
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                     Column {
@@ -902,7 +1009,7 @@ fun HomeScreen(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Trigger Fake Call in 10s",
+                            text = "Fake Call in 10s",
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                             color = MaterialTheme.colorScheme.tertiary
                         )
@@ -911,15 +1018,15 @@ fun HomeScreen(
                         onClick = { viewModel.scheduleFakeCall(10) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(32.dp)
+                            .height(34.dp)
                             .testTag("btn_schedule_fake_call"),
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                             contentColor = MaterialTheme.colorScheme.onSurface
                         )
                     ) {
-                        Text("Schedule Call", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Trigger Call", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(
                             imageVector = Icons.Default.Timer,
@@ -931,12 +1038,16 @@ fun HomeScreen(
             }
         }
 
-        // 6. Nearby Emergency Facilities Card
+        // 6. Nearby Emergency Facilities Card with Dedicated Category Symbols
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surfaceContainerLowest,
-            shadowElevation = 1.dp
+            shadowElevation = 2.dp,
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+            )
         ) {
             Column(
                 modifier = Modifier.padding(14.dp),
@@ -949,140 +1060,67 @@ fun HomeScreen(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.LocalPolice,
-                            contentDescription = null,
-                            tint = Primary,
-                            modifier = Modifier.size(18.dp)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(Primary.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.LocalPolice,
+                                contentDescription = null,
+                                tint = Primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                         Text(
                             text = "Nearby Emergency Facilities",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                     Text(
                         text = "Verified Units",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                        color = Secondary
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp
+                        ),
+                        color = Color(0xFF10B981)
                     )
                 }
 
-                // Station 1
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerLow
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(10.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(34.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Shield,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                            Column {
-                                Text(
-                                    text = "Sector 29 Police Station",
-                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "On-Duty Patrol Rapid Tier",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                                    color = Secondary
-                                )
-                            }
-                        }
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainer
-                        ) {
-                            Text(
-                                text = "0.8 km",
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold)
-                            )
-                        }
-                    }
-                }
+                // Station 1: Police
+                FacilityItem(
+                    icon = Icons.Default.Shield,
+                    iconBg = Color(0xFF0284C7).copy(alpha = 0.15f),
+                    iconTint = Color(0xFF0284C7),
+                    name = "Sector 29 Police Station",
+                    category = "Rapid Patrol Tier • Female Help Desk",
+                    distance = "0.8 km"
+                )
 
-                // Hospital 2
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerLow
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(10.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(34.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.MedicalServices,
-                                    contentDescription = null,
-                                    tint = Primary,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                            Column {
-                                Text(
-                                    text = "Civil Hospital Emergency Trauma",
-                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "24/7 Female Support Desk",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                                    color = MaterialTheme.colorScheme.tertiary
-                                )
-                            }
-                        }
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainer
-                        ) {
-                            Text(
-                                text = "1.4 km",
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold)
-                            )
-                        }
-                    }
-                }
+                // Station 2: Hospital Trauma Center
+                FacilityItem(
+                    icon = Icons.Default.LocalHospital,
+                    iconBg = Primary.copy(alpha = 0.15f),
+                    iconTint = Primary,
+                    name = "Civil Hospital Trauma Center",
+                    category = "24/7 Female Support & Emergency Room",
+                    distance = "1.4 km"
+                )
+
+                // Station 3: Safe Haven Sanctuary
+                FacilityItem(
+                    icon = Icons.Default.Favorite,
+                    iconBg = Color(0xFF10B981).copy(alpha = 0.15f),
+                    iconTint = Color(0xFF10B981),
+                    name = "Pink Haven Safe Sanctuary",
+                    category = "Dedicated Women Shelter & Transit Guard",
+                    distance = "0.5 km"
+                )
             }
         }
 
@@ -1139,6 +1177,80 @@ fun HomeScreen(
                         Text("Dismiss Simulation", fontWeight = FontWeight.Bold)
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FacilityItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconBg: Color,
+    iconTint: Color,
+    name: String,
+    category: String,
+    distance: String
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(iconBg),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = iconTint,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Column {
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = category,
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                }
+            }
+            Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = MaterialTheme.colorScheme.surfaceContainer
+            ) {
+                Text(
+                    text = distance,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 11.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
             }
         }
     }

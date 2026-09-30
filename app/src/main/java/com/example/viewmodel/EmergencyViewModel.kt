@@ -1,13 +1,17 @@
 package com.example.viewmodel
 
 import android.app.Application
+import android.content.Context
+import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.audio.RealtimeAudioStreamer
 import com.example.data.AppDatabase
 import com.example.data.EmergencyRepository
+import com.example.location.EmergencyLocationSharingService
 import com.example.location.GpsCoordinate
 import com.example.location.RealtimeLocationManager
+import com.example.model.ContactBroadcastLog
 import com.example.model.EmergencyContact
 import com.example.model.EmergencyHub
 import com.example.model.EmergencyStatus
@@ -15,6 +19,7 @@ import com.example.model.HubType
 import com.example.model.IncidentCard
 import com.example.model.IncidentLog
 import com.example.model.LiveSpeakingState
+import com.example.model.NetworkInterfaceInfo
 import com.example.model.OfficerInfo
 import com.example.model.SafeRoute
 import com.example.model.UserProfile
@@ -59,6 +64,17 @@ class EmergencyViewModel(application: Application) : AndroidViewModel(applicatio
     val isGpsFixActive: StateFlow<Boolean> = locationManager.isGpsFixActive
     val gpsProviderType: StateFlow<String> = locationManager.gpsProviderType
     val isSimulatingWalk: StateFlow<Boolean> = locationManager.isSimulatingWalk
+
+    // Real-Time Location Sharing Foreground Service to Trusted Contacts
+    val isLocationSharingActive: StateFlow<Boolean> = EmergencyLocationSharingService.isServiceRunning
+    val locationBroadcastLogs: StateFlow<List<ContactBroadcastLog>> = EmergencyLocationSharingService.broadcastLogs
+    val totalLocationBroadcasts: StateFlow<Int> = EmergencyLocationSharingService.totalBroadcastsSent
+    val lastLocationBroadcastTime: StateFlow<String?> = EmergencyLocationSharingService.lastBroadcastTime
+
+    // P2P Two-Device Connection Resilience
+    val availableHostIps: StateFlow<List<NetworkInterfaceInfo>> = syncManager.availableHostIps
+    val lastConnectionError: StateFlow<String?> = syncManager.lastConnectionError
+    val isSubnetScanning: StateFlow<Boolean> = syncManager.isSubnetScanning
 
     // Nearby Emergency Hubs
     private val _emergencyHubs = MutableStateFlow<List<EmergencyHub>>(createInitialEmergencyHubs())
@@ -591,6 +607,17 @@ class EmergencyViewModel(application: Application) : AndroidViewModel(applicatio
             "High Urgency SOS Beacon initiated via Master Button."
         }
 
+        // Start real-time foreground location sharing service to broadcast to trusted contacts
+        try {
+            EmergencyLocationSharingService.startSharing(
+                getApplication(),
+                _activeIncidentCode.value,
+                _currentUserProfile.value.name
+            )
+        } catch (e: Exception) {
+            // Ignore
+        }
+
         // Broadcast to connected peer device
         syncManager.broadcastAction("SOS_TRIGGER", JSONObject().apply {
             put("isSilent", isSilent)
@@ -714,6 +741,7 @@ class EmergencyViewModel(application: Application) : AndroidViewModel(applicatio
         _isResolved.value = true
         _emergencyStatus.value = EmergencyStatus.RESOLVED
         _toastMessage.value = "Incident resolved and archived safely."
+        EmergencyLocationSharingService.stopSharing(getApplication())
         syncManager.broadcastAction("RESOLVED")
         viewModelScope.launch {
             repository.addLog(
@@ -749,6 +777,7 @@ class EmergencyViewModel(application: Application) : AndroidViewModel(applicatio
         return if (enteredPin == safePin) {
             _emergencyStatus.value = EmergencyStatus.IDLE
             etaTimerJob?.cancel()
+            EmergencyLocationSharingService.stopSharing(getApplication())
             _toastMessage.value = "PIN Verified. Emergency session stood down."
             syncManager.broadcastAction("CANCEL_PIN")
             viewModelScope.launch {
@@ -782,6 +811,59 @@ class EmergencyViewModel(application: Application) : AndroidViewModel(applicatio
             _toastMessage.value = "Invalid PIN. Please re-enter."
             false
         }
+    }
+
+    // ==========================================
+    // Location Sharing & Resilience Methods
+    // ==========================================
+    fun startLocationSharingService() {
+        EmergencyLocationSharingService.startSharing(
+            getApplication(),
+            _activeIncidentCode.value,
+            _currentUserProfile.value.name
+        )
+        _toastMessage.value = "Real-time location sharing started: Broadcasting to trusted contacts."
+    }
+
+    fun stopLocationSharingService() {
+        EmergencyLocationSharingService.stopSharing(getApplication())
+        _toastMessage.value = "Location sharing service paused."
+    }
+
+    fun broadcastLocationToContactsNow() {
+        EmergencyLocationSharingService.triggerManualBroadcast(getApplication())
+        _toastMessage.value = "Live coordinates broadcasted to all trusted contacts."
+    }
+
+    fun shareLiveLocationViaIntent(context: Context) {
+        val loc = locationManager.currentLocation.value
+        val mapsUrl = "https://maps.google.com/?q=${loc.latitude},${loc.longitude}"
+        val shareText = "🚨 RESOLUTE SOS ALERT: ${_currentUserProfile.value.name} is in an active emergency!\nLive GPS Coordinates: $mapsUrl (Accuracy: ±${loc.accuracyMeters.toInt()}m).\nResolute Sentinel Real-Time Tracking Active."
+        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+            putExtra(Intent.EXTRA_TEXT, shareText)
+            type = "text/plain"
+        }
+        val shareIntent = Intent.createChooser(sendIntent, "Broadcast Emergency Coordinates")
+        shareIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(shareIntent)
+    }
+
+    fun selectHostIp(ip: String) {
+        syncManager.selectHostIp(ip)
+    }
+
+    fun scanSubnetAndConnect(role: ConnectionRole = ConnectionRole.RESPONDER_PATROL) {
+        syncManager.scanSubnetAndConnect(role)
+    }
+
+    fun connectViaSessionCode(sessionCode: String = "SOS-8942", role: ConnectionRole = ConnectionRole.RESPONDER_PATROL) {
+        syncManager.connectViaSessionCode(sessionCode, role)
+        _toastMessage.value = "Connected via Session Relay Bridge ($sessionCode)!"
+    }
+
+    fun simulateConnectedPeer(role: ConnectionRole = ConnectionRole.VICTIM_BEACON) {
+        syncManager.simulateConnectedPeer(role)
+        _toastMessage.value = "Virtual responder connected! Real-time telemetry streaming."
     }
 
     fun scheduleFakeCall(delaySeconds: Int = 10) {
