@@ -1,0 +1,8 @@
+{
+  "name": "Resolute SOS",
+  "description": "High-urgency emergency response, tactical patrol dispatch, real-time audio relay, safe routes navigation and women safety network.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
