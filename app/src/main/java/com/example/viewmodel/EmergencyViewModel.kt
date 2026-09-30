@@ -9,7 +9,9 @@ import com.example.data.EmergencyRepository
 import com.example.location.GpsCoordinate
 import com.example.location.RealtimeLocationManager
 import com.example.model.EmergencyContact
+import com.example.model.EmergencyHub
 import com.example.model.EmergencyStatus
+import com.example.model.HubType
 import com.example.model.IncidentCard
 import com.example.model.IncidentLog
 import com.example.model.LiveSpeakingState
@@ -54,6 +56,19 @@ class EmergencyViewModel(application: Application) : AndroidViewModel(applicatio
     val myLocation: StateFlow<GpsCoordinate> = locationManager.currentLocation
     val peerLocation: StateFlow<GpsCoordinate?> = locationManager.peerLocation
     val audioAmplitude: StateFlow<Float> = audioStreamer.audioAmplitude
+    val isGpsFixActive: StateFlow<Boolean> = locationManager.isGpsFixActive
+    val gpsProviderType: StateFlow<String> = locationManager.gpsProviderType
+    val isSimulatingWalk: StateFlow<Boolean> = locationManager.isSimulatingWalk
+
+    // Nearby Emergency Hubs
+    private val _emergencyHubs = MutableStateFlow<List<EmergencyHub>>(createInitialEmergencyHubs())
+    val emergencyHubs: StateFlow<List<EmergencyHub>> = _emergencyHubs.asStateFlow()
+
+    private val _selectedHub = MutableStateFlow<EmergencyHub?>(null)
+    val selectedHub: StateFlow<EmergencyHub?> = _selectedHub.asStateFlow()
+
+    private val _hubFilter = MutableStateFlow<HubType?>(null)
+    val hubFilter: StateFlow<HubType?> = _hubFilter.asStateFlow()
 
     // ==========================================
     // 1. Role-Based Authentication & Session State
@@ -216,6 +231,27 @@ class EmergencyViewModel(application: Application) : AndroidViewModel(applicatio
         setupTwoDeviceSyncWiring()
         startPatrolEscalationCountdown()
         locationManager.startLocationUpdates()
+
+        // Recalculate emergency hubs distance and ETA dynamically whenever user GPS updates
+        viewModelScope.launch {
+            locationManager.currentLocation.collect { userLoc ->
+                val updated = _emergencyHubs.value.map { hub ->
+                    val hubCoord = GpsCoordinate(latitude = hub.latitude, longitude = hub.longitude)
+                    val distKm = locationManager.calculateDistanceKm(userLoc, hubCoord)
+                    val distM = distKm * 1000.0
+                    val distFmt = if (distM < 1000) "${distM.toInt()} m" else String.format(Locale.US, "%.1f km", distKm)
+                    val walkMin = (distKm / 4.5 * 60).toInt().coerceAtLeast(1)
+                    val driveMin = (distKm / 35.0 * 60).toInt().coerceAtLeast(1)
+                    hub.copy(
+                        distanceMeters = distM,
+                        distanceFormatted = distFmt,
+                        etaWalkingMinutes = walkMin,
+                        etaDrivingMinutes = driveMin
+                    )
+                }.sortedBy { it.distanceMeters }
+                _emergencyHubs.value = updated
+            }
+        }
     }
 
     private fun setupTwoDeviceSyncWiring() {
@@ -783,6 +819,152 @@ class EmergencyViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun clearToast() {
         _toastMessage.value = null
+    }
+
+    // ==========================================
+    // 5. Emergency Hubs & Live GPS Controls
+    // ==========================================
+    fun selectHub(hub: EmergencyHub?) {
+        _selectedHub.value = hub
+    }
+
+    fun setHubFilter(type: HubType?) {
+        _hubFilter.value = type
+    }
+
+    fun toggleSimulatedWalk() {
+        locationManager.toggleSimulatedWalk()
+        val isWalking = locationManager.isSimulatingWalk.value
+        _toastMessage.value = if (isWalking) "Live GPS walk simulated (4.8 km/h)" else "GPS Stationary Fix active"
+    }
+
+    fun startGpsTracking() {
+        locationManager.startLocationUpdates()
+        _toastMessage.value = "Real-time GPS tracking active"
+    }
+
+    private fun createInitialEmergencyHubs(): List<EmergencyHub> {
+        return listOf(
+            EmergencyHub(
+                id = "HUB-POL-01",
+                name = "Sector 28 Police Station & QRT",
+                type = HubType.POLICE,
+                address = "MG Road, Sector 28, Cyber City Metro",
+                latitude = 12.9758,
+                longitude = 77.5891,
+                phone = "112",
+                operates24Hours = true,
+                facilities = listOf("24/7 Armed QRT", "Women Helpdesk", "PCR Interceptors", "SOS Radio Base"),
+                distanceMeters = 550.0,
+                distanceFormatted = "550 m",
+                etaWalkingMinutes = 6,
+                etaDrivingMinutes = 2,
+                isVerified = true,
+                description = "Primary district police station with 4 armed quick-response interceptors and direct radio desk."
+            ),
+            EmergencyHub(
+                id = "HUB-HOSP-01",
+                name = "Civil Hospital 24/7 Trauma Desk",
+                type = HubType.HOSPITAL,
+                address = "Sushant Lok Phase 1, Near Pillar 38",
+                latitude = 12.9641,
+                longitude = 77.5911,
+                phone = "102",
+                operates24Hours = true,
+                facilities = listOf("Trauma Surgery", "ICU Ambulances", "Emergency Blood Bank", "24/7 ER"),
+                distanceMeters = 900.0,
+                distanceFormatted = "900 m",
+                etaWalkingMinutes = 11,
+                etaDrivingMinutes = 3,
+                isVerified = true,
+                description = "Government certified Level-1 emergency trauma care center with advanced life support ambulances."
+            ),
+            EmergencyHub(
+                id = "HUB-SAFE-01",
+                name = "Pink Booth Women Safe Haven",
+                type = HubType.SAFE_HAVEN,
+                address = "Metro Gate 2 Promenade, Pillar 42",
+                latitude = 12.9735,
+                longitude = 77.5968,
+                phone = "1091",
+                operates24Hours = true,
+                facilities = listOf("Female Police Officers", "Direct SOS Alarm", "HD Night CCTV", "First Aid"),
+                distanceMeters = 320.0,
+                distanceFormatted = "320 m",
+                etaWalkingMinutes = 4,
+                etaDrivingMinutes = 1,
+                isVerified = true,
+                description = "Guarded women sanctuary with immediate distress beacon alarm and direct district radio bridge."
+            ),
+            EmergencyHub(
+                id = "HUB-SAFE-02",
+                name = "CyberHub 24/7 Guardian Haven",
+                type = HubType.SAFE_HAVEN,
+                address = "DLF CyberHub Central Promenade",
+                latitude = 12.9702,
+                longitude = 77.5932,
+                phone = "+91 800-2872-7233",
+                operates24Hours = true,
+                facilities = listOf("Guarded Rest Area", "Panic Intercom", "AED Defibrillator", "Direct 112 Line"),
+                distanceMeters = 210.0,
+                distanceFormatted = "210 m",
+                etaWalkingMinutes = 3,
+                etaDrivingMinutes = 1,
+                isVerified = true,
+                description = "Well-lit commercial district sanctuary staffed 24/7 by trained rapid security officers."
+            ),
+            EmergencyHub(
+                id = "HUB-POL-02",
+                name = "Sector 29 Police Outpost & Intercept",
+                type = HubType.POLICE,
+                address = "Sector 29 Commercial Plaza Entry North",
+                latitude = 12.9782,
+                longitude = 77.5995,
+                phone = "0124-238411",
+                operates24Hours = true,
+                facilities = listOf("Scorpio Patrol Unit 4", "Quick Intercept", "Emergency SOS Radio Desk"),
+                distanceMeters = 850.0,
+                distanceFormatted = "850 m",
+                etaWalkingMinutes = 10,
+                etaDrivingMinutes = 3,
+                isVerified = true,
+                description = "Rapid response post guarding commercial plazas and pedestrian transit walkways."
+            ),
+            EmergencyHub(
+                id = "HUB-HOSP-02",
+                name = "Max Healthcare Emergency Wing",
+                type = HubType.HOSPITAL,
+                address = "Block B, Sushant Lok 1, Gurugram",
+                latitude = 12.9680,
+                longitude = 77.6015,
+                phone = "0124-6623000",
+                operates24Hours = true,
+                facilities = listOf("Critical Cardiac Unit", "Emergency Resuscitation", "Fast-Track ER"),
+                distanceMeters = 820.0,
+                distanceFormatted = "820 m",
+                etaWalkingMinutes = 9,
+                etaDrivingMinutes = 3,
+                isVerified = true,
+                description = "Multi-specialty emergency department equipped with rapid trauma triage."
+            ),
+            EmergencyHub(
+                id = "HUB-FIRE-01",
+                name = "Cyber City Fire & Rescue Station 3",
+                type = HubType.FIRE_STATION,
+                address = "DLF Phase 2 Service Road",
+                latitude = 12.9692,
+                longitude = 77.5878,
+                phone = "101",
+                operates24Hours = true,
+                facilities = listOf("Hydraulic Tender", "Heavy Extraction Cutters", "Hazmat Unit"),
+                distanceMeters = 780.0,
+                distanceFormatted = "780 m",
+                etaWalkingMinutes = 9,
+                etaDrivingMinutes = 2,
+                isVerified = true,
+                description = "Disaster management and vehicular extraction team with 24/7 rapid dispatch crews."
+            )
+        )
     }
 
     override fun onCleared() {

@@ -1,15 +1,31 @@
 package com.example.location
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
+import android.os.Looper
 import android.util.Log
+import androidx.core.content.ContextCompat
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import java.util.Locale
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -22,6 +38,7 @@ data class GpsCoordinate(
     val accuracyMeters: Float = 3.0f,
     val speedKmh: Float = 0.0f,
     val altitudeMeters: Double = 215.0,
+    val bearingDegrees: Float = 0.0f,
     val locationName: String = "Cyber City Sector 28",
     val timestamp: Long = System.currentTimeMillis()
 )
@@ -29,22 +46,25 @@ data class GpsCoordinate(
 class RealtimeLocationManager(private val context: Context) {
     companion object {
         private const val TAG = "RealtimeLocationManager"
-        
-        // Base starting coordinates (Cyber City Sector 28)
+
+        // Default starting anchor: Cyber City Sector 28
         const val DEFAULT_VICTIM_LAT = 12.9716
         const val DEFAULT_VICTIM_LNG = 77.5946
-        
+
         const val DEFAULT_PATROL_LAT = 12.9812
         const val DEFAULT_PATROL_LNG = 77.6025
     }
 
+    private val scope = CoroutineScope(Dispatchers.Main)
     private val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+    private val fusedLocationClient: FusedLocationProviderClient =
+        LocationServices.getFusedLocationProviderClient(context)
 
     private val _currentLocation = MutableStateFlow(
         GpsCoordinate(
             latitude = DEFAULT_VICTIM_LAT,
             longitude = DEFAULT_VICTIM_LNG,
-            accuracyMeters = 3.2f,
+            accuracyMeters = 2.8f,
             speedKmh = 0.0f,
             locationName = "MG Road Metro Station, Sector 28, Gurugram"
         )
@@ -62,51 +82,132 @@ class RealtimeLocationManager(private val context: Context) {
     )
     val peerLocation: StateFlow<GpsCoordinate?> = _peerLocation.asStateFlow()
 
+    private val _isGpsFixActive = MutableStateFlow(false)
+    val isGpsFixActive: StateFlow<Boolean> = _isGpsFixActive.asStateFlow()
+
+    private val _gpsProviderType = MutableStateFlow("Fused Realtime GPS")
+    val gpsProviderType: StateFlow<String> = _gpsProviderType.asStateFlow()
+
+    private val _isSimulatingWalk = MutableStateFlow(false)
+    val isSimulatingWalk: StateFlow<Boolean> = _isSimulatingWalk.asStateFlow()
+
+    private var walkSimulationJob: Job? = null
+    private var isFusedListening = false
+
+    private val fusedLocationCallback = object : LocationCallback() {
+        override fun onLocationResult(result: LocationResult) {
+            val location = result.lastLocation ?: return
+            handleNewLocation(location, "Google Play Services Fused Location")
+        }
+    }
+
     private val locationListener = object : LocationListener {
         override fun onLocationChanged(location: Location) {
-            _currentLocation.value = GpsCoordinate(
-                latitude = location.latitude,
-                longitude = location.longitude,
-                accuracyMeters = location.accuracy,
-                speedKmh = location.speed * 3.6f,
-                altitudeMeters = location.altitude,
-                locationName = "Lat: ${String.format(Locale.US, "%.4f", location.latitude)}, Lng: ${String.format(Locale.US, "%.4f", location.longitude)}"
-            )
+            handleNewLocation(location, "Hardware GPS Provider")
         }
 
         override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
-        override fun onProviderEnabled(provider: String) {}
-        override fun onProviderDisabled(provider: String) {}
+        override fun onProviderEnabled(provider: String) {
+            _isGpsFixActive.value = true
+        }
+        override fun onProviderDisabled(provider: String) {
+            _isGpsFixActive.value = false
+        }
+    }
+
+    private fun handleNewLocation(location: Location, providerName: String) {
+        _isGpsFixActive.value = true
+        _gpsProviderType.value = providerName
+        _currentLocation.value = GpsCoordinate(
+            latitude = location.latitude,
+            longitude = location.longitude,
+            accuracyMeters = if (location.accuracy > 0) location.accuracy else 2.5f,
+            speedKmh = location.speed * 3.6f,
+            altitudeMeters = location.altitude,
+            bearingDegrees = location.bearing,
+            locationName = "Lat: ${String.format(Locale.US, "%.4f", location.latitude)}, Lng: ${String.format(Locale.US, "%.4f", location.longitude)}",
+            timestamp = location.time
+        )
+    }
+
+    fun hasLocationPermission(): Boolean {
+        val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
+        val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION)
+        return fine == PackageManager.PERMISSION_GRANTED || coarse == PackageManager.PERMISSION_GRANTED
     }
 
     @SuppressLint("MissingPermission")
     fun startLocationUpdates() {
+        if (!hasLocationPermission()) {
+            Log.w(TAG, "Location permission not yet granted; retaining simulated high-precision anchor")
+            return
+        }
+
+        try {
+            // 1. First get immediate last known location
+            fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
+                if (loc != null) {
+                    handleNewLocation(loc, "Fused Location (Cached Fix)")
+                }
+            }
+
+            // 2. Request high-accuracy continuous updates
+            val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000L)
+                .setMinUpdateIntervalMillis(500L)
+                .setMinUpdateDistanceMeters(0.5f)
+                .build()
+
+            fusedLocationClient.requestLocationUpdates(
+                locationRequest,
+                fusedLocationCallback,
+                Looper.getMainLooper()
+            )
+            isFusedListening = true
+            _isGpsFixActive.value = true
+            _gpsProviderType.value = "Fused High-Accuracy GPS"
+        } catch (e: Exception) {
+            Log.w(TAG, "Fused location unavailable; falling back to LocationManager", e)
+            fallbackToStandardLocationManager()
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun fallbackToStandardLocationManager() {
         try {
             if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
                 locationManager.requestLocationUpdates(
                     LocationManager.GPS_PROVIDER,
                     1000L,
-                    1f,
+                    0.5f,
                     locationListener
                 )
+                _isGpsFixActive.value = true
+                _gpsProviderType.value = "Hardware GPS"
             } else if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
                 locationManager.requestLocationUpdates(
                     LocationManager.NETWORK_PROVIDER,
                     1000L,
-                    1f,
+                    0.5f,
                     locationListener
                 )
+                _isGpsFixActive.value = true
+                _gpsProviderType.value = "Network Cell/WiFi"
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Location provider access limited; using fused telemetry stream", e)
+            Log.w(TAG, "Standard location manager error", e)
         }
     }
 
     fun stopLocationUpdates() {
         try {
+            if (isFusedListening) {
+                fusedLocationClient.removeLocationUpdates(fusedLocationCallback)
+                isFusedListening = false
+            }
             locationManager.removeUpdates(locationListener)
+            _isGpsFixActive.value = false
         } catch (e: Exception) {
-            Log.e(TAG, "Error removing location updates", e)
+            Log.e(TAG, "Error stopping location updates", e)
         }
     }
 
@@ -119,8 +220,47 @@ class RealtimeLocationManager(private val context: Context) {
     }
 
     /**
+     * Toggles live simulation walk mode for browser emulator testing.
+     * Gradually moves user position towards emergency hubs with realistic speed and bearing.
+     */
+    fun toggleSimulatedWalk() {
+        val willSimulate = !_isSimulatingWalk.value
+        _isSimulatingWalk.value = willSimulate
+
+        walkSimulationJob?.cancel()
+        if (willSimulate) {
+            _gpsProviderType.value = "Live Telemetry Simulator (4.8 km/h)"
+            _isGpsFixActive.value = true
+            walkSimulationJob = scope.launch {
+                var step = 0
+                while (isActive && _isSimulatingWalk.value) {
+                    val curr = _currentLocation.value
+                    // Walk in a circular/patrol path
+                    val angle = (step * 8.0) * (Math.PI / 180.0)
+                    val deltaLat = sin(angle) * 0.00012
+                    val deltaLng = cos(angle) * 0.00012
+
+                    _currentLocation.value = curr.copy(
+                        latitude = DEFAULT_VICTIM_LAT + deltaLat,
+                        longitude = DEFAULT_VICTIM_LNG + deltaLng,
+                        speedKmh = 4.8f,
+                        accuracyMeters = 1.8f,
+                        bearingDegrees = ((step * 8) % 360).toFloat(),
+                        locationName = "Walking • Cyber City Sector 28 Corridor",
+                        timestamp = System.currentTimeMillis()
+                    )
+                    step++
+                    delay(1200)
+                }
+            }
+        } else {
+            _gpsProviderType.value = "Stationary Fix (±2.5m)"
+            _currentLocation.value = _currentLocation.value.copy(speedKmh = 0f)
+        }
+    }
+
+    /**
      * Simulates real-time patrol vehicle intercept movement towards victim.
-     * Progress ratio from 0.0 (starting station) to 1.0 (on scene with victim).
      */
     fun updatePatrolProgress(progressRatio: Float) {
         val clampedRatio = progressRatio.coerceIn(0f, 1f)
@@ -128,7 +268,7 @@ class RealtimeLocationManager(private val context: Context) {
         val lat = DEFAULT_PATROL_LAT + (victim.latitude - DEFAULT_PATROL_LAT) * clampedRatio
         val lng = DEFAULT_PATROL_LNG + (victim.longitude - DEFAULT_PATROL_LNG) * clampedRatio
         val speed = if (clampedRatio >= 0.98f) 0.0f else (35.0f + (clampedRatio * 15.0f))
-        
+
         _peerLocation.value = GpsCoordinate(
             latitude = lat,
             longitude = lng,
@@ -139,7 +279,7 @@ class RealtimeLocationManager(private val context: Context) {
     }
 
     /**
-     * Simulates minor live GPS telemetry drift / pedestrian movement during speech
+     * Simulates minor live GPS telemetry drift during speech
      */
     fun nudgeLocationDuringSpeech(isCitizen: Boolean, stepCount: Int) {
         val drift = (stepCount % 5 - 2) * 0.00008

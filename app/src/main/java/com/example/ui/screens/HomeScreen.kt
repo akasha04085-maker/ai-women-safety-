@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.EmergencyShare
 import androidx.compose.material.icons.filled.LocalPolice
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.MedicalServices
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.PhoneInTalk
@@ -96,7 +97,8 @@ fun HomeScreen(
     viewModel: EmergencyViewModel,
     onNavigateToActiveSos: () -> Unit,
     onNavigateToRoutes: () -> Unit,
-    onNavigateToContacts: () -> Unit
+    onNavigateToContacts: () -> Unit,
+    onNavigateToHubs: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -410,6 +412,54 @@ fun HomeScreen(
                             )
                             Text("AI Safe", fontSize = 11.sp, fontWeight = FontWeight.Medium)
                         }
+                    }
+                }
+
+                // 1-Tap Google Maps Emergency Hubs Quick Link
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable { onNavigateToHubs?.invoke() }
+                        .testTag("btn_home_explore_emergency_hubs"),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Map,
+                                contentDescription = null,
+                                tint = Primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Column {
+                                Text(
+                                    text = "Nearby Emergency Hubs",
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "7 Police, Trauma & Safe Havens on Google Maps",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            tint = Primary,
+                            modifier = Modifier.size(16.dp)
+                        )
                     }
                 }
             }

@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.AltRoute
 import androidx.compose.material.icons.filled.CellTower
 import androidx.compose.material.icons.filled.Emergency
 import androidx.compose.material.icons.filled.LocalPolice
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Quickreply
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Icon
@@ -36,6 +37,7 @@ import com.example.ui.theme.Primary
 
 enum class NavDestination(val label: String, val icon: ImageVector, val tag: String) {
     HOME("SOS Home", Icons.Default.Emergency, "nav_tab_home"),
+    HUBS("Nearby Hubs", Icons.Default.Map, "nav_tab_hubs"),
     ROUTES("Routes", Icons.Default.AltRoute, "nav_tab_routes"),
     CONTACTS("Allies", Icons.Default.Quickreply, "nav_tab_contacts"),
     PATROL("Patrol Duty", Icons.Default.LocalPolice, "nav_tab_patrol"),
@@ -52,20 +54,21 @@ fun TacticalBottomNavBar(
     val roleDestinations = when (currentUserRole) {
         UserRole.CITIZEN -> listOf(
             NavDestination.HOME,
+            NavDestination.HUBS,
             NavDestination.ROUTES,
             NavDestination.CONTACTS,
             NavDestination.SYNC
         )
         UserRole.RESPONDER_PATROL -> listOf(
             NavDestination.PATROL,
-            NavDestination.ROUTES,
+            NavDestination.HUBS,
             NavDestination.COMMAND,
             NavDestination.SYNC
         )
         UserRole.COMMAND_CENTER -> listOf(
             NavDestination.COMMAND,
+            NavDestination.HUBS,
             NavDestination.PATROL,
-            NavDestination.ROUTES,
             NavDestination.SYNC
         )
     }

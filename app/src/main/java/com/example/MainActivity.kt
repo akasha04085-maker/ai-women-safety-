@@ -72,6 +72,7 @@ import com.example.ui.components.TacticalTopAppBar
 import com.example.ui.screens.ActiveSosScreen
 import com.example.ui.screens.ContactsScreen
 import com.example.ui.screens.DevicePairingScreen
+import com.example.ui.screens.EmergencyHubsMapScreen
 import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.IncidentDetailsScreen
 import com.example.ui.screens.LoginScreen
@@ -85,6 +86,7 @@ import com.example.viewmodel.EmergencyViewModel
 
 enum class AppScreen {
     HOME,
+    EMERGENCY_HUBS,
     ROUTES,
     CONTACTS,
     PATROL,
@@ -184,6 +186,7 @@ fun MainAppRoot(viewModel: EmergencyViewModel) {
     BackHandler(enabled = currentScreen != defaultHomeForRole) {
         currentScreen = when (currentScreen) {
             AppScreen.ACTIVE_SOS -> AppScreen.HOME
+            AppScreen.EMERGENCY_HUBS -> defaultHomeForRole
             AppScreen.INCIDENT_COMMAND -> if (currentRole == UserRole.COMMAND_CENTER) AppScreen.INCIDENT_COMMAND else AppScreen.PATROL
             AppScreen.DEVICE_PAIRING -> defaultHomeForRole
             else -> defaultHomeForRole
@@ -192,6 +195,7 @@ fun MainAppRoot(viewModel: EmergencyViewModel) {
 
     val navDestination = when (currentScreen) {
         AppScreen.HOME -> NavDestination.HOME
+        AppScreen.EMERGENCY_HUBS -> NavDestination.HUBS
         AppScreen.ROUTES -> NavDestination.ROUTES
         AppScreen.CONTACTS -> NavDestination.CONTACTS
         AppScreen.PATROL -> NavDestination.PATROL
@@ -217,6 +221,18 @@ fun MainAppRoot(viewModel: EmergencyViewModel) {
                             viewModel.triggerSosEmergency()
                             currentScreen = AppScreen.ACTIVE_SOS
                         },
+                        onPairDevicesClick = { currentScreen = AppScreen.DEVICE_PAIRING },
+                        onSwitchRoleClick = { showRoleSwitchDialog = true },
+                        isP2pConnected = isP2pConnected,
+                        onProfileClick = { showProfileModal = true }
+                    )
+                }
+                AppScreen.EMERGENCY_HUBS -> {
+                    TacticalTopAppBar(
+                        title = "Emergency Hubs",
+                        subtitle = "Real-Time GPS • Google Maps",
+                        showBack = false,
+                        currentUserRole = currentRole,
                         onPairDevicesClick = { currentScreen = AppScreen.DEVICE_PAIRING },
                         onSwitchRoleClick = { showRoleSwitchDialog = true },
                         isP2pConnected = isP2pConnected,
@@ -310,6 +326,7 @@ fun MainAppRoot(viewModel: EmergencyViewModel) {
                     onDestinationSelected = { dest ->
                         currentScreen = when (dest) {
                             NavDestination.HOME -> AppScreen.HOME
+                            NavDestination.HUBS -> AppScreen.EMERGENCY_HUBS
                             NavDestination.ROUTES -> AppScreen.ROUTES
                             NavDestination.CONTACTS -> AppScreen.CONTACTS
                             NavDestination.PATROL -> AppScreen.PATROL
@@ -337,7 +354,14 @@ fun MainAppRoot(viewModel: EmergencyViewModel) {
                             viewModel = viewModel,
                             onNavigateToActiveSos = { currentScreen = AppScreen.ACTIVE_SOS },
                             onNavigateToRoutes = { currentScreen = AppScreen.ROUTES },
-                            onNavigateToContacts = { currentScreen = AppScreen.CONTACTS }
+                            onNavigateToContacts = { currentScreen = AppScreen.CONTACTS },
+                            onNavigateToHubs = { currentScreen = AppScreen.EMERGENCY_HUBS }
+                        )
+                    }
+                    AppScreen.EMERGENCY_HUBS -> {
+                        EmergencyHubsMapScreen(
+                            viewModel = viewModel,
+                            onNavigateBack = { currentScreen = defaultHomeForRole }
                         )
                     }
                     AppScreen.ACTIVE_SOS -> {

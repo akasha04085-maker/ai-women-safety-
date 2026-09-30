@@ -124,6 +124,11 @@ fun TacticalGoogleMap(
         LatLng(victimLocation.latitude + 0.0042, victimLocation.longitude - 0.0055)
     }
 
+    // Civil Hospital Trauma Desk
+    val hospitalLatLng = remember(victimLocation) {
+        LatLng(victimLocation.latitude - 0.0075, victimLocation.longitude - 0.0035)
+    }
+
     // Safest well-lit navigation route waypoints
     val safeRouteWaypoints = remember(victimLatLng, patrolLatLng) {
         listOf(
@@ -359,6 +364,23 @@ fun TacticalGoogleMap(
                     title = "Sector 28 Police Station (Safe Haven)",
                     snippet = "24/7 Armed Guard Desk • 350m Away",
                     icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)
+                )
+
+                // 5. Civil Hospital Trauma Desk
+                Marker(
+                    state = MarkerState(position = hospitalLatLng),
+                    title = "Civil Hospital 24/7 Trauma Desk",
+                    snippet = "Level-1 Trauma Care • Emergency ER",
+                    icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
+                )
+
+                // 6. Pink Booth Women Safe Haven
+                val pinkBoothLatLng = LatLng(victimLocation.latitude + 0.0019, victimLocation.longitude + 0.0022)
+                Marker(
+                    state = MarkerState(position = pinkBoothLatLng),
+                    title = "Pink Booth Women Safe Haven",
+                    snippet = "24/7 Guarded Haven • Direct SOS Intercom",
+                    icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_VIOLET)
                 )
 
                 // 5. Active Safest Intercept Polyline

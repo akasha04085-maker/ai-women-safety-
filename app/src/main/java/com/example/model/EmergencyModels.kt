@@ -129,3 +129,33 @@ data class IncidentCard(
     val autoEscalateSeconds: Int,
     val isCritical: Boolean = true
 )
+
+enum class HubType(
+    val title: String,
+    val chipLabel: String,
+    val colorHex: Long
+) {
+    POLICE("Police Station & QRT", "POLICE", 0xFF1E40AF),
+    HOSPITAL("Hospital Trauma Desk", "HOSPITAL", 0xFFDC2626),
+    SAFE_HAVEN("Women Safe Haven", "SAFE HAVEN", 0xFF7C3AED),
+    FIRE_STATION("Fire & Rescue Station", "FIRE", 0xFFEA580C),
+    PATROL_POST("Tactical Patrol Post", "PATROL", 0xFF059669)
+}
+
+data class EmergencyHub(
+    val id: String,
+    val name: String,
+    val type: HubType,
+    val address: String,
+    val latitude: Double,
+    val longitude: Double,
+    val phone: String,
+    val operates24Hours: Boolean = true,
+    val facilities: List<String> = emptyList(),
+    val distanceMeters: Double = 0.0,
+    val distanceFormatted: String = "350 m",
+    val etaWalkingMinutes: Int = 4,
+    val etaDrivingMinutes: Int = 2,
+    val isVerified: Boolean = true,
+    val description: String = ""
+)
